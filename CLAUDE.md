@@ -166,8 +166,25 @@ Optimal = 0.90 (Stage 2 dominates, small MC correction helps)
 - golf_model/historical_rounds.csv: 29K tour-wide rows (2015-2022)
 - Open-Meteo weather: 5 tournament weeks (2021-2025)
 
+### Event Tier Weighting (tested, rejected)
+Tested event-tier weights on rolling SG features: Masters=3.0x, Players/WGC=2.0x,
+Majors=1.8x, Elevated=1.4x, Standard=1.0x, Weak-field=0.5x, LIV=0.4x.
+Backtest result: AVG AUC dropped from 0.636 to 0.624 (-0.012).
+Root cause: training data is PGA Tour only (2015-2022), no LIV events to downweight.
+Tier weighting adds noise to exponential decay without enough signal.
+Decision: keep unweighted rolling features. Tier module available at
+augusta_model/features/event_tiers.py if LIV data is added later.
+
+### MC Spread Fix (Session 5)
+noise_std: 0.16 → 0.10, target_pred_std: 0.10 → 0.14
+Result: Scheffler win% 5.5% → 10.8%, #1/median ratio 8.6x → 152x
+Temperature scaling T=2.5 for S2 calibration (optimal Brier on backtest)
+DraftKings odds fetched live via The Odds API for edge calculation
+
 ### Data gaps remaining
 - No SG data for 2019-2020 Masters
 - No real historical closing odds for top-10/top-20 markets
 - 2021 S2 has no prior top-10 examples (first SG year) — cold start problem
 - DG approach-skill/par-5 SG requires paid tier
+- Training data is PGA Tour 2015-2022 only — no LIV events, limits event-tier weighting
+- S2 top-10% still inflated for longshots (Vijay Singh at 31% etc.)
