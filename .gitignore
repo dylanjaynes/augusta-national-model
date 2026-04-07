@@ -4,8 +4,22 @@ __pycache__/
 *.pyc
 .DS_Store
 data/raw/
-*.csv
-*.parquet
 venv/
 .venv/
 .streamlit/secrets.toml
+.Rhistory
+
+# Ignore all parquet/csv by default
+*.parquet
+*.csv
+
+# But keep these specific processed files for Streamlit deployment
+!data/processed/predictions_2026.parquet
+!data/processed/predictions_2026.csv
+!data/processed/edge_2026.csv
+!data/processed/backtest_results_v3.parquet
+!data/processed/augusta_player_features.parquet
+!data/processed/masters_unified.parquet
+!data/processed/masters_sg_rounds.parquet
+!data/processed/masters_weather.parquet
+!data/processed/augusta_sg_weights.json
