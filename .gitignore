@@ -23,3 +23,5 @@ venv/
 !data/processed/masters_sg_rounds.parquet
 !data/processed/masters_weather.parquet
 !data/processed/augusta_sg_weights.json
+!data/processed/dk_odds_2026.csv
+!data/processed/edge_2026_real_odds.csv
