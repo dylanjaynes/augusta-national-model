@@ -19,6 +19,7 @@ if preds is None:
 
 st.title("Head-to-Head Matchups")
 
+t10_col = "top10_prob" if "top10_prob" in preds.columns else "top10_prob_calibrated"
 players = preds["player_name"].tolist()
 
 col1, col2 = st.columns(2)
@@ -41,7 +42,7 @@ col1, col2, col3 = st.columns(3)
 with col1:
     st.subheader(player_a)
     st.metric("Win %", f"{a['win_prob']:.1%}")
-    st.metric("Top-10 %", f"{a['top10_prob_calibrated']:.1%}")
+    st.metric("Top-10 %", f"{a[t10_col]:.1%}")
     st.metric("Top-20 %", f"{a['top20_prob']:.1%}")
 with col2:
     st.subheader("vs")
@@ -58,7 +59,7 @@ with col2:
 with col3:
     st.subheader(player_b)
     st.metric("Win %", f"{b['win_prob']:.1%}")
-    st.metric("Top-10 %", f"{b['top10_prob_calibrated']:.1%}")
+    st.metric("Top-10 %", f"{b[t10_col]:.1%}")
     st.metric("Top-20 %", f"{b['top20_prob']:.1%}")
 
 # Augusta profile comparison

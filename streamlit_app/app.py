@@ -48,19 +48,30 @@ col1.metric("Field Size", len(preds))
 debutants = (preds["augusta_experience_tier"]==0).sum()
 col2.metric("Debutants", debutants)
 top1 = preds.iloc[0]
-col3.metric("Model #1 (Top-10)", top1["player_name"], f"{top1['top10_prob_calibrated']:.1%}")
+t10_col_header = "top10_prob" if "top10_prob" in preds.columns else "top10_prob_calibrated"
+col3.metric("Model #1 (Top-10)", top1["player_name"], f"{top1[t10_col_header]:.1%}")
 if edge is not None and len(edge)>0:
     fav = edge.sort_values("market_win_pct", ascending=False).iloc[0]
     col4.metric("Odds Favourite", fav["player_name"], f"{fav['market_win_pct']:.1%} mkt")
 
 st.markdown("---")
 st.subheader("Quick Look — Top 10")
-top10 = preds.head(10)[["player_name","win_prob","top10_prob_calibrated","top20_prob",
-                         "augusta_experience_tier","augusta_made_cut_prev_year","augusta_scoring_trajectory"]].copy()
-top10.columns = ["Player","Win %","Top-10 %","Top-20 %","Exp Tier","Cut Prev Yr","Trajectory"]
+t10_col = "top10_prob" if "top10_prob" in preds.columns else "top10_prob_calibrated"
+base_cols = ["player_name","win_prob",t10_col,"top20_prob",
+             "augusta_experience_tier","augusta_made_cut_prev_year","augusta_scoring_trajectory"]
+if "make_cut_prob" in preds.columns:
+    base_cols.insert(4, "make_cut_prob")
+top10 = preds.head(10)[base_cols].copy()
+col_names = ["Player","Win %","Top-10 %","Top-20 %"]
+if "make_cut_prob" in preds.columns:
+    col_names.append("Cut %")
+col_names += ["Exp Tier","Cut Prev Yr","Trajectory"]
+top10.columns = col_names
 top10["Win %"] = top10["Win %"].map("{:.1%}".format)
 top10["Top-10 %"] = top10["Top-10 %"].map("{:.1%}".format)
 top10["Top-20 %"] = top10["Top-20 %"].map("{:.1%}".format)
+if "Cut %" in top10.columns:
+    top10["Cut %"] = top10["Cut %"].map("{:.1%}".format)
 top10["Trajectory"] = top10["Trajectory"].map("{:+.2f}".format)
 top10.index = range(1, len(top10)+1)
 st.dataframe(top10, use_container_width=True)

@@ -23,7 +23,8 @@ col1.metric("Field Size", len(preds))
 col2.metric("Debutants", (preds["augusta_experience_tier"]==0).sum())
 top1 = preds.iloc[0]
 col3.metric("Top Pick", top1["player_name"])
-col4.metric("Top Pick T10%", f"{top1['top10_prob_calibrated']:.1%}")
+t10_col = "top10_prob" if "top10_prob" in preds.columns else "top10_prob_calibrated"
+col4.metric("Top Pick T10%", f"{top1[t10_col]:.1%}")
 
 st.markdown("---")
 
@@ -50,7 +51,7 @@ display["Experience"] = display["augusta_experience_tier"].map(tier_map)
 
 show_cols = {
     "Rank": "Rank", "player_name": "Player",
-    "win_prob": "Win %", "top10_prob_calibrated": "Top-10 %",
+    "win_prob": "Win %", t10_col: "Top-10 %",
     "top20_prob": "Top-20 %", "Experience": "Experience",
     "Cut Last Yr": "Cut Last Yr",
     "augusta_scoring_trajectory": "Trajectory", "Flags": "Flags",

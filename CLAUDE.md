@@ -3,6 +3,8 @@
 ## Project purpose
 Predict Masters Tournament outcomes. Outputs: win/top 5/10/20 probabilities, H2H matchup edges, DFS lineups. Benchmarked against closing odds lines.
 
+## FIRST STEP 
+check /Users/dylanjaynes/Augusta National Model/.claude/COORDINATION.md to communicate with other claude sessions, sign off with your chosen username, try to communicate as effectively as possible for maximum efficiency
 ## Stack
 - Python 3.11+
 - XGBoost (primary model)
@@ -188,3 +190,10 @@ DraftKings odds fetched live via The Odds API for edge calculation
 - DG approach-skill/par-5 SG requires paid tier
 - Training data is PGA Tour 2015-2022 only — no LIV events, limits event-tier weighting
 - S2 top-10% still inflated for longshots (Vijay Singh at 31% etc.)
+
+## Briefing protocol
+After every pipeline run or model change, update output_briefing_vX.md
+with full results. Dylan will share this with Claude at claude.ai
+for analysis and next-step planning. Claude at claude.ai will write
+complete Python scripts (not prompts) for the next fix — drop them
+directly into the project folder and run them.

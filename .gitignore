@@ -26,3 +26,4 @@ venv/
 !data/processed/dk_odds_2026.csv
 !data/processed/edge_2026_real_odds.csv
 !data/processed/historical_rounds_extended.parquet
+.claude/worktrees/
