@@ -1,0 +1,839 @@
+year,date,event_name,tour,field_size,field_strength_mean,field_strength_q25,field_strength_q75,field_strength_q10,field_strength_q90
+2019,"2019-11-24","DP World Tour Championship, Dubai","EURO",50,0.49,0.15,0.87,-0.25,1.27
+2019,"2019-11-17","Nedbank Golf Challenge hosted by Gary Player","EURO",63,-0.01,-0.37,0.49,-0.73,0.77
+2019,"2019-11-10","Turkish Airlines Open","EURO",75,-0.16,-0.57,0.39,-0.89,0.77
+2019,"2019-10-27","Portugal Masters","EURO",126,-1.23,-1.59,-0.58,-2.66,-0.22
+2019,"2019-10-20","Amundi Open de France","EURO",117,-0.92,-1.42,-0.41,-1.87,0.09
+2019,"2019-10-13","Italian Open","EURO",137,-0.53,-1.04,-0.02,-1.55,0.56
+2019,"2019-10-06","Mutuactivos Open de España","EURO",138,-1.36,-1.84,-0.65,-2.77,-0.38
+2019,"2019-09-29","Alfred Dunhill Links Championship","EURO",168,-0.64,-1.19,-0.17,-1.69,0.52
+2019,"2019-09-22","BMW PGA Championship","EURO",132,-0.32,-0.82,0.25,-1.46,0.85
+2019,"2019-09-15","KLM Open","EURO",155,-1.35,-1.83,-0.69,-2.66,-0.21
+2019,"2019-09-08","Porsche European Open","EURO",150,-1.18,-1.79,-0.57,-2.39,-0.01
+2019,"2019-09-02","Korn Ferry Tour Championship presented by United Leasing & Finance","KFT",122,-0.64,-0.9,-0.32,-1.15,-0.12
+2019,"2019-09-01","Omega European Masters","EURO",155,-0.83,-1.34,-0.19,-1.89,0.36
+2019,"2019-08-25","Scandinavian Invitation","EURO",155,-1.08,-1.58,-0.45,-2.07,-0.07
+2019,"2019-08-25","Albertsons Boise Open presented by Kraft Nabisco","KFT",130,-0.6,-0.91,-0.3,-1.08,-0.07
+2019,"2019-08-25","TOUR Championship","PGA",30,1.32,0.99,1.56,0.86,1.98
+2019,"2019-08-18","D+D Real Czech Masters","EURO",156,-1.34,-1.71,-0.57,-2.85,-0.13
+2019,"2019-08-18","BMW Championship","PGA",69,0.83,0.42,1.22,-0.02,1.65
+2019,"2019-08-18","Nationwide Children's Hospital Championship","KFT",138,-0.63,-0.89,-0.38,-1.1,-0.15
+2019,"2019-08-11","WinCo Foods Portland Open presented by KraftHeinz","KFT",155,-1.06,-1.38,-0.72,-1.64,-0.43
+2019,"2019-08-11","THE NORTHERN TRUST","PGA",120,0.5,0.09,0.91,-0.24,1.24
+2019,"2019-08-04","Wyndham Championship","PGA",155,-0.24,-0.54,0.27,-1.19,0.69
+2019,"2019-08-04","Ellie Mae Classic at TPC Stonebrae","KFT",156,-1.43,-1.76,-0.89,-2.5,-0.54
+2019,"2019-07-28","Price Cutter Charity Championship presented by Dr Pepper","KFT",154,-1.43,-1.79,-0.79,-2.47,-0.54
+2019,"2019-07-28","Barracuda Championship","PGA",130,-1.06,-1.57,-0.23,-3.09,0.1
+2019,"2019-07-28","World Golf Championships-FedEx St. Jude Invitational","PGA",63,0.65,0.24,1.26,-0.27,1.55
+2019,"2019-07-21","The Open Championship","PGA",156,0.05,-0.55,0.83,-1.38,1.36
+2019,"2019-07-21","Pinnacle Bank Championship presented by Chevrolet","KFT",155,-1.22,-1.51,-0.71,-2.22,-0.42
+2019,"2019-07-21","Barbasol Championship","PGA",132,-1.11,-1.75,-0.31,-2.83,0.05
+2019,"2019-07-14","TPC Colorado Championship at Heron Lakes","KFT",156,-1.34,-1.65,-0.83,-2.62,-0.45
+2019,"2019-07-14","Aberdeen Standard Investments Scottish Open","EURO",156,-0.53,-1.08,0.02,-1.51,0.61
+2019,"2019-07-14","John Deere Classic","PGA",155,-0.58,-1.04,0.1,-1.82,0.34
+2019,"2019-07-07","LECOM Health Challenge","KFT",155,-1.43,-1.83,-0.88,-2.58,-0.52
+2019,"2019-07-07","Dubai Duty Free Irish Open","EURO",156,-0.61,-1.07,-0.12,-1.62,0.49
+2019,"2019-07-07","3M Open","PGA",155,-0.34,-0.74,0.24,-1.35,0.6
+2019,"2019-06-30","Estrella Damm N.A. Andalucía Masters hosted by the Sergio Garcia Foundation","EURO",156,-0.93,-1.44,-0.42,-1.84,-0.08
+2019,"2019-06-30","Utah Championship presented by Zions Bank","KFT",156,-1.4,-1.64,-0.86,-2.65,-0.5
+2019,"2019-06-30","Rocket Mortgage Classic","PGA",156,-0.29,-0.69,0.22,-1.25,0.64
+2019,"2019-06-23","BMW International Open","EURO",156,-0.97,-1.45,-0.38,-2.13,0.11
+2019,"2019-06-23","Wichita Open Supporting Wichita's Youth","KFT",155,-1.37,-1.73,-0.89,-2.39,-0.5
+2019,"2019-06-23","Travelers Championship","PGA",156,-0.12,-0.6,0.4,-1.03,0.85
+2019,"2019-06-16","Lincoln Land Championship presented by LRS","KFT",155,-1.52,-1.88,-0.91,-2.77,-0.55
+2019,"2019-06-16","U.S. Open","PGA",156,-0.06,-0.75,0.74,-1.65,1.24
+2019,"2019-06-09","RBC Canadian Open","PGA",156,-0.54,-1.08,0.16,-1.69,0.63
+2019,"2019-06-09","BMW Charity Pro-Am presented by SYNNEX Corporation","KFT",159,-1.28,-1.76,-0.77,-2.38,-0.44
+2019,"2019-06-02","Belgian Knockout","EURO",142,-1.18,-1.5,-0.6,-2.19,-0.19
+2019,"2019-06-02","the Memorial Tournament presented by Nationwide","PGA",120,0.26,-0.12,0.73,-0.6,1.16
+2019,"2019-06-02","REX Hospital Open","KFT",156,-1.25,-1.7,-0.73,-2.24,-0.46
+2019,"2019-05-26","Evans Scholars Invitational","KFT",156,-1.36,-1.82,-0.86,-2.29,-0.48
+2019,"2019-05-26","Made in Denmark presented by FREJA","EURO",154,-0.96,-1.47,-0.41,-2.1,-0.05
+2019,"2019-05-26","Charles Schwab Challenge","PGA",121,-0.08,-0.41,0.52,-1.04,0.84
+2019,"2019-05-19","Knoxville Open","KFT",155,-1.42,-1.81,-0.79,-2.61,-0.51
+2019,"2019-05-19","PGA Championship","PGA",156,-0.04,-0.16,0.74,-2.69,1.3
+2019,"2019-05-12","KC Golf Classic","KFT",154,-1.41,-1.75,-0.86,-2.37,-0.49
+2019,"2019-05-12","AT&T Byron Nelson","PGA",155,-0.47,-0.86,0.15,-1.41,0.52
+2019,"2019-05-12","Betfred British Masters","EURO",155,-0.9,-1.39,-0.41,-1.83,0.03
+2019,"2019-05-05","Nashville Golf Open Benefitting the Snedeker Foundation","KFT",155,-1.41,-1.77,-0.83,-2.57,-0.48
+2019,"2019-05-05","Volvo China Open","EURO",152,-1.84,-2.83,-0.7,-4.46,-0.09
+2019,"2019-05-05","Wells Fargo Championship","PGA",156,-0.27,-0.75,0.31,-1.2,0.75
+2019,"2019-04-28","Dormie Network Classic at Briggs Ranch","KFT",156,-1.21,-1.58,-0.78,-2.05,-0.43
+2019,"2019-04-28","Trophee Hassan II","EURO",154,-1.13,-1.49,-0.42,-2.08,-0.03
+2019,"2019-04-21","RBC Heritage","PGA",131,0.1,-0.27,0.45,-0.88,1.09
+2019,"2019-04-21","Robert Trent Jones Golf Trail Championship","KFT",156,-1.19,-1.5,-0.78,-2.22,-0.43
+2019,"2019-04-14","The Masters","PGA",87,0.23,-0.05,1.11,-1.74,1.5
+2019,"2019-04-07","Valero Texas Open","PGA",143,-0.15,-0.4,0.28,-0.96,0.59
+2019,"2019-03-31","Savannah Golf Championship","KFT",156,-1.32,-1.63,-0.83,-2.38,-0.48
+2019,"2019-03-31","Hero Indian Open","EURO",143,-1.62,-2.38,-0.72,-3.24,-0.3
+2019,"2019-03-31","Corales Puntacana Resort & Club Championship","PGA",132,-1.15,-1.58,-0.31,-3.08,0.1
+2019,"2019-03-24","Maybank Championship","EURO",155,-1.24,-1.71,-0.53,-2.63,-0.04
+2019,"2019-03-24","Chitimacha Louisiana Open presented by MISTRAS","KFT",144,-1.25,-1.63,-0.78,-2.25,-0.39
+2019,"2019-03-24","Valspar Championship","PGA",144,-0.2,-0.67,0.26,-1.11,0.91
+2019,"2019-03-17","THE PLAYERS Championship","PGA",143,0.42,-0.04,0.91,-0.48,1.38
+2019,"2019-03-17","Magical Kenya Open presented by Absa","EURO",142,-2.07,-2.3,-1.02,-4.62,-0.58
+2019,"2019-03-10","Commercial Bank Qatar Masters","EURO",143,-1,-1.35,-0.29,-1.91,-0.04
+2019,"2019-03-10","Arnold Palmer Invitational presented by Mastercard","PGA",122,0.16,-0.16,0.57,-0.53,1.07
+2019,"2019-03-03","The Honda Classic","PGA",143,-0.13,-0.46,0.24,-0.93,0.75
+2019,"2019-03-03","Oman Open","EURO",142,-1.06,-1.29,-0.5,-1.9,-0.21
+2019,"2019-02-24","World Golf Championships-Mexico Championship","PGA",72,0.69,0.27,1.23,-0.5,1.67
+2019,"2019-02-24","Puerto Rico Open","PGA",131,-1.44,-2.2,-0.43,-3.35,-0.13
+2019,"2019-02-17","LECOM Suncoast Classic","KFT",144,-1.25,-1.6,-0.72,-2.57,-0.41
+2019,"2019-02-17","ISPS Handa World Super 6 Perth","EURO",155,-1.46,-2.05,-0.93,-2.44,-0.46
+2019,"2019-02-17","Genesis Open","PGA",144,0.01,-0.48,0.53,-0.91,1.23
+2019,"2019-02-10","ISPS Handa Vic Open","EURO",156,-1.74,-2.38,-1,-2.95,-0.54
+2019,"2019-02-10","AT&T Pebble Beach Pro-Am","PGA",155,-0.36,-0.81,0.21,-1.4,0.73
+2019,"2019-02-10","Panama Championship","KFT",143,-1.18,-1.46,-0.77,-1.98,-0.49
+2019,"2019-02-03","Country Club de Bogota Championship","KFT",155,-1.26,-1.6,-0.75,-2.19,-0.52
+2019,"2019-02-03","Saudi International powered by SBIA","EURO",132,-0.74,-1.03,-0.1,-1.71,0.67
+2019,"2019-02-03","Waste Management Phoenix Open","PGA",132,0.08,-0.24,0.54,-0.68,0.99
+2019,"2019-01-27","Omega Dubai Desert Classic","EURO",132,-0.49,-0.95,-0.01,-1.47,0.66
+2019,"2019-01-27","Farmers Insurance Open","PGA",156,-0.04,-0.45,0.42,-0.97,0.96
+2019,"2019-01-23","The Bahamas Great Abaco Classic at The Abaco Club","KFT",132,-1.2,-1.5,-0.76,-2.09,-0.46
+2019,"2019-01-20","Desert Classic","PGA",156,-0.24,-0.63,0.18,-1.15,0.56
+2019,"2019-01-19","Abu Dhabi HSBC Championship presented by EGA","EURO",132,-0.5,-0.92,-0.03,-1.31,0.55
+2019,"2019-01-16","The Bahamas Great Exuma Classic at Sandals Emerald Bay","KFT",132,-1.21,-1.58,-0.72,-2.14,-0.51
+2019,"2019-01-13","Sony Open in Hawaii","PGA",144,-0.2,-0.6,0.33,-1.07,0.85
+2019,"2019-01-06","Sentry Tournament of Champions","PGA",33,0.9,0.48,1.47,-0.03,1.72
+2019,"2018-12-16","Alfred Dunhill Championship","EURO",156,-1.65,-2.3,-0.79,-3.21,-0.4
+2019,"2018-12-09","South African Open hosted by the City of Johannesburg","EURO",240,-2,-2.76,-1,-3.73,-0.52
+2019,"2018-12-02","Australian PGA Championship","EURO",156,-1.97,-2.7,-1.16,-3.46,-0.54
+2019,"2018-12-02","Afrasia Bank Mauritius Open at Anahita","EURO",154,-1.83,-2.54,-1.02,-3.41,-0.4
+2019,"2018-12-02","Hero World Challenge","PGA",18,1.55,1.36,1.82,1.12,1.95
+2019,"2018-11-25","Honma Hong Kong Open presented by Amundi","EURO",131,-1.36,-1.92,-0.54,-2.67,-0.17
+2019,"2018-11-18","The RSM Classic","PGA",156,-0.46,-0.82,0.11,-1.55,0.42
+2019,"2018-11-11","Mayakoba Golf Classic","PGA",132,-0.14,-0.49,0.35,-0.95,0.67
+2019,"2018-11-04","Shriners Hospitals for Children Open","PGA",132,-0.16,-0.54,0.24,-0.97,0.59
+2019,"2018-10-28","World Golf Championships-HSBC Champions","PGA",77,0.38,-0.22,1.05,-1.02,1.64
+2019,"2018-10-28","Sanderson Farms Championship","PGA",132,-0.56,-0.91,-0.05,-1.39,0.22
+2019,"2018-10-21","THE CJ CUP @ NINE BRIDGES","PGA",78,0.31,-0.13,0.8,-0.76,1.27
+2019,"2018-10-14","CIMB Classic","PGA",78,0.1,-0.16,0.6,-0.79,0.94
+2019,"2018-10-07","Safeway Open","PGA",144,-0.24,-0.52,0.14,-0.98,0.49
+2020,"2020-12-13","DP World Tour Championship, Dubai","EURO",65,0.01,-0.41,0.33,-0.67,0.95
+2020,"2020-12-06","South African Open","EURO",155,-2,-2.85,-1.05,-3.7,-0.44
+2020,"2020-12-05","Golf in Dubai Championship presented by DP World","EURO",107,-1.1,-1.56,-0.39,-2.29,0.04
+2020,"2020-11-29","Alfred Dunhill Championship #2","EURO",155,-1.68,-2.39,-0.79,-3.39,-0.38
+2020,"2020-11-22","Joburg Open","EURO",156,-1.88,-2.48,-0.95,-3.61,-0.4
+2020,"2020-11-15","The Masters","PGA",92,0.28,-0.11,1,-1.15,1.67
+2020,"2020-11-08","Aphrodite Hills Cyprus Showdown","EURO",105,-1.02,-1.37,-0.5,-1.78,-0.18
+2020,"2020-11-01","Cyprus Open","EURO",105,-0.9,-1.2,-0.46,-1.67,-0.23
+2020,"2020-10-25","Italian Open","EURO",114,-1.27,-1.81,-0.68,-2.42,-0.28
+2020,"2020-10-18","Scottish Championship","EURO",107,-1.28,-1.81,-0.68,-2.41,-0.25
+2020,"2020-10-11","Orange County National Championship presented by Knight 39","KFT",156,-1,-1.26,-0.54,-1.81,-0.24
+2020,"2020-10-11","BMW PGA Championship","EURO",118,-0.58,-0.97,0.01,-1.68,0.44
+2020,"2020-10-04","Savannah Golf Championship","KFT",156,-1.02,-1.27,-0.55,-1.68,-0.2
+2020,"2020-10-04","Aberdeen Standard Investments Scottish Open","EURO",126,-0.81,-1.34,-0.14,-2.22,0.26
+2020,"2020-09-27","Dubai Duty Free Irish Open","EURO",120,-1.12,-1.63,-0.63,-2.1,-0.26
+2020,"2020-09-27","Wichita Open Supporting Wichita's Youth","KFT",156,-1.12,-1.38,-0.64,-2.01,-0.26
+2020,"2020-09-27","Corales Puntacana Resort & Club Championship","PGA",144,-0.97,-1.62,-0.11,-2.91,0.43
+2020,"2020-09-20","Open de Portugal at Royal Óbidos","EURO",126,-2.01,-2.36,-1.41,-3.25,-0.98
+2020,"2020-09-20","U.S. Open","PGA",144,0.22,-0.19,0.85,-0.99,1.38
+2020,"2020-09-13","Evans Scholars Invitational","KFT",156,-1.1,-1.5,-0.67,-1.91,-0.25
+2020,"2020-09-13","Portugal Masters","EURO",132,-1.25,-1.78,-0.69,-2.36,-0.28
+2020,"2020-09-07","TOUR Championship","PGA",30,1.26,0.89,1.56,0.63,1.89
+2020,"2020-09-06","Lincoln Land Championship presented by LRS","KFT",156,-1.35,-1.9,-0.75,-2.33,-0.37
+2020,"2020-09-06","Estrella Damm N.A. Andalucia Masters","EURO",127,-1.14,-1.61,-0.59,-2.19,-0.07
+2020,"2020-08-30","ISPS HANDA UK Championship","EURO",131,-1.12,-1.52,-0.59,-2.06,-0.19
+2020,"2020-08-30","BMW Championship","PGA",69,0.86,0.46,1.27,0.19,1.59
+2020,"2020-08-30","Korn Ferry Tour Championship presented by United Leasing & Finance","KFT",120,-0.81,-1.14,-0.44,-1.46,-0.17
+2020,"2020-08-23","ISPS HANDA Wales Open","EURO",131,-1.14,-1.64,-0.58,-2.16,-0.2
+2020,"2020-08-23","THE NORTHERN TRUST","PGA",122,0.59,0.24,0.9,-0.19,1.34
+2020,"2020-08-23","Nationwide Children's Hospital Championship","KFT",144,-0.91,-1.25,-0.5,-1.59,-0.16
+2020,"2020-08-16","Wyndham Championship","PGA",156,-0.14,-0.59,0.47,-1.36,0.78
+2020,"2020-08-16","Celtic Classic","EURO",132,-1.08,-1.45,-0.59,-1.94,-0.16
+2020,"2020-08-16","Albertsons Boise Open presented by Kraft Nabisco","KFT",144,-0.97,-1.32,-0.64,-1.68,-0.21
+2020,"2020-08-09","WinCo Foods Portland Open presented by KraftHeinz","KFT",156,-1.02,-1.34,-0.67,-1.8,-0.25
+2020,"2020-08-09","English Championship","EURO",132,-1.1,-1.46,-0.65,-1.96,-0.23
+2020,"2020-08-09","PGA Championship","PGA",156,-0.06,-0.21,0.76,-2.91,1.24
+2020,"2020-08-02","Pinnacle Bank Championship presented by Aetna","KFT",155,-1.39,-1.8,-0.93,-2.34,-0.51
+2020,"2020-08-02","Hero Open","EURO",132,-1.04,-1.46,-0.58,-1.9,-0.23
+2020,"2020-08-02","Barracuda Championship","PGA",130,-0.9,-1.42,-0.01,-2.77,0.34
+2020,"2020-08-02","World Golf Championships-FedEx St. Jude Invitational","PGA",78,0.72,0.29,1.12,-0.03,1.51
+2020,"2020-07-26","Price Cutter Charity Championship presented by Dr Pepper","KFT",156,-1.54,-2.03,-0.99,-2.5,-0.55
+2020,"2020-07-26","3M Open","PGA",155,-0.48,-0.96,0.22,-1.97,0.6
+2020,"2020-07-25","Betfred British Masters hosted by Lee Westwood","EURO",131,-1.1,-1.49,-0.58,-1.9,-0.26
+2020,"2020-07-19","the Memorial Tournament presented by Nationwide","PGA",130,0.38,0.05,0.76,-0.5,1.36
+2020,"2020-07-18","TPC San Antonio Championship at the Oaks","KFT",156,-1.09,-1.39,-0.63,-1.83,-0.32
+2020,"2020-07-18","Euram Bank Open","EURO",144,-2.17,-2.62,-1.51,-3.46,-1.16
+2020,"2020-07-12","TPC San Antonio Challenge at the Canyons","KFT",155,-1.23,-1.54,-0.78,-2.07,-0.44
+2020,"2020-07-12","Austrian Open","EURO",144,-1.96,-2.42,-1.32,-3,-0.73
+2020,"2020-07-12","Workday Charity Open","PGA",157,0.01,-0.4,0.47,-0.81,0.96
+2020,"2020-07-05","Rocket Mortgage Classic","PGA",156,-0.25,-0.71,0.31,-1.32,0.74
+2020,"2020-07-04","TPC Colorado Championship at Heron Lakes","KFT",155,-1.26,-1.57,-0.74,-2.16,-0.52
+2020,"2020-06-28","Utah Championship presented by Zions Bank","KFT",155,-1.17,-1.58,-0.71,-1.86,-0.47
+2020,"2020-06-28","Travelers Championship","PGA",156,0.05,-0.47,0.53,-0.89,1.15
+2020,"2020-06-21","RBC Heritage","PGA",151,0.15,-0.21,0.68,-0.97,1.09
+2020,"2020-06-20","The King & Bear Classic at World Golf Village","KFT",156,-1.03,-1.47,-0.56,-1.87,-0.29
+2020,"2020-06-14","Korn Ferry Challenge at TPC Sawgrass","KFT",155,-1.05,-1.42,-0.58,-1.77,-0.31
+2020,"2020-06-14","Charles Schwab Challenge","PGA",148,0.18,-0.05,0.61,-0.58,1.15
+2020,"2020-03-15","THE PLAYERS Championship","PGA",143,0.47,0.14,0.78,-0.31,1.32
+2020,"2020-03-08","Commercial Bank Qatar Masters","EURO",142,-1.04,-1.44,-0.4,-1.84,-0.03
+2020,"2020-03-08","Arnold Palmer Invitational presented by Mastercard","PGA",121,0.2,-0.1,0.63,-0.56,1.07
+2020,"2020-03-01","The Honda Classic","PGA",144,-0.08,-0.43,0.36,-0.85,0.77
+2020,"2020-03-01","Oman Open","EURO",146,-0.91,-1.29,-0.43,-1.64,-0.05
+2020,"2020-03-01","El Bosque Mexico Championship by INNOVA","KFT",144,-1.42,-1.8,-0.89,-2.62,-0.47
+2020,"2020-02-23","World Golf Championships-Mexico Championship","PGA",72,0.55,0.24,0.99,-0.35,1.5
+2020,"2020-02-23","Puerto Rico Open","PGA",120,-1.09,-1.86,-0.22,-3.07,0.12
+2020,"2020-02-16","LECOM Suncoast Classic","KFT",144,-1.2,-1.57,-0.72,-2.13,-0.4
+2020,"2020-02-16","The Genesis Invitational","PGA",120,0.33,-0.02,0.68,-0.41,1.16
+2020,"2020-02-09","Country Club de Bogota Championship","KFT",156,-1.31,-1.66,-0.86,-2.18,-0.53
+2020,"2020-02-09","ISPS Handa Vic Open","EURO",144,-2.28,-2.92,-1.3,-4.41,-0.61
+2020,"2020-02-09","AT&T Pebble Beach Pro-Am","PGA",156,-0.32,-0.71,0.33,-1.37,0.63
+2020,"2020-02-02","Saudi International powered by SoftBank Investment Advisors","EURO",132,-0.61,-0.92,-0.03,-1.55,0.62
+2020,"2020-02-02","Waste Management Phoenix Open","PGA",132,0.05,-0.28,0.59,-0.86,0.92
+2020,"2020-02-02","Panama Championship","KFT",144,-1.32,-1.74,-0.86,-2.05,-0.55
+2020,"2020-01-26","Omega Dubai Desert Classic","EURO",131,-0.57,-0.92,0.09,-1.85,0.69
+2020,"2020-01-26","Farmers Insurance Open","PGA",156,-0.14,-0.56,0.39,-1.05,0.84
+2020,"2020-01-22","The Bahamas Great Abaco Classic at Baha Mar","KFT",132,-1.28,-1.65,-0.76,-2.18,-0.49
+2020,"2020-01-19","The American Express","PGA",156,-0.21,-0.56,0.27,-1.09,0.67
+2020,"2020-01-19","Abu Dhabi HSBC Championship presented by EGA","EURO",132,-0.46,-0.84,0.09,-1.58,0.61
+2020,"2020-01-15","The Bahamas Great Exuma Classic at Sandals Emerald Bay","KFT",131,-1.22,-1.44,-0.73,-2.1,-0.51
+2020,"2020-01-12","South African Open hosted by the City of Johannesburg","EURO",240,-2.1,-3.01,-1.06,-4.12,-0.37
+2020,"2020-01-12","Sony Open in Hawaii","PGA",144,-0.24,-0.63,0.37,-1.32,0.74
+2020,"2020-01-05","Sentry Tournament of Champions","PGA",34,0.58,0.2,1.02,-0.2,1.54
+2020,"2019-12-22","Australian PGA Championship","EURO",156,-2.01,-2.62,-1.3,-3.18,-0.75
+2020,"2019-12-08","AFRASIA BANK Mauritius Open","EURO",156,-1.68,-2.38,-0.86,-2.93,-0.41
+2020,"2019-12-07","Hero World Challenge","PGA",18,1.22,0.84,1.57,0.48,2
+2020,"2019-12-01","Alfred Dunhill Championship #1","EURO",156,-1.65,-2.27,-0.78,-3.22,-0.43
+2020,"2019-11-24","The RSM Classic","PGA",155,-0.39,-0.82,0.17,-1.4,0.57
+2020,"2019-11-17","Mayakoba Golf Classic","PGA",132,-0.17,-0.52,0.32,-1.08,0.68
+2020,"2019-11-03","World Golf Championships-HSBC Champions","PGA",78,0.21,-0.25,0.9,-1.21,1.26
+2020,"2019-11-03","Bermuda Championship","PGA",120,-1.29,-2.05,-0.25,-3.74,0.16
+2020,"2019-10-27","ZOZO CHAMPIONSHIP","PGA",78,0.52,0.11,1.01,-0.34,1.21
+2020,"2019-10-20","THE CJ CUP @ NINE BRIDGES","PGA",78,0.2,-0.16,0.78,-0.96,1.09
+2020,"2019-10-13","Houston Open","PGA",143,-0.6,-0.93,0,-1.96,0.37
+2020,"2019-10-06","Shriners Hospitals for Children Open","PGA",144,-0.03,-0.28,0.45,-0.93,0.86
+2020,"2019-09-29","Safeway Open","PGA",144,-0.26,-0.61,0.25,-1.13,0.67
+2020,"2019-09-22","Sanderson Farms Championship","PGA",156,-0.45,-0.83,0.12,-1.78,0.39
+2020,"2019-09-15","A Military Tribute at The Greenbrier","PGA",156,-0.42,-0.71,0.11,-1.45,0.36
+2021,"2021-11-21","DP WORLD TOUR CHAMPIONSHIP, DUBAI","EURO",53,0.23,-0.16,0.76,-0.4,1.08
+2021,"2021-11-14","AVIV Dubai Championship","EURO",114,-0.76,-1.16,-0.22,-1.69,0.02
+2021,"2021-11-07","Portugal Masters","EURO",107,-0.87,-1.33,-0.34,-1.97,-0.04
+2021,"2021-10-24","Mallorca Golf Open","EURO",120,-1.32,-1.88,-0.53,-2.46,-0.14
+2021,"2021-10-17","Estrella Damm N.A. Andalucía Masters","EURO",126,-0.8,-1.32,-0.14,-2.01,0.11
+2021,"2021-10-10","ACCIONA Open de España","EURO",131,-0.93,-1.38,-0.32,-2,-0.04
+2021,"2021-10-03","Alfred Dunhill Links Championship","EURO",168,-0.91,-1.51,-0.19,-2.29,0.24
+2021,"2021-09-19","Dutch Open","EURO",144,-1.62,-2.3,-0.77,-3.28,-0.16
+2021,"2021-09-12","BMW PGA CHAMPIONSHIP","EURO",144,-0.53,-1.03,0.1,-1.65,0.48
+2021,"2021-09-05","Korn Ferry Tour Championship presented by United Leasing & Finance","KFT",129,-0.56,-0.87,-0.23,-1.24,0.11
+2021,"2021-09-05","DS Automobiles Italian Open","EURO",156,-0.91,-1.49,-0.19,-2.42,0.17
+2021,"2021-09-05","TOUR Championship","PGA",30,1.46,1.31,1.64,1.06,1.72
+2021,"2021-08-29","Nationwide Children's Hospital Championship","KFT",138,-0.55,-0.8,-0.23,-1.24,0.08
+2021,"2021-08-29","Omega European Masters","EURO",156,-0.96,-1.41,-0.26,-2.27,0.07
+2021,"2021-08-29","BMW Championship","PGA",69,0.96,0.56,1.43,0.28,1.66
+2021,"2021-08-22","Albertsons Boise Open presented by Chevron","KFT",132,-0.56,-0.86,-0.25,-1.27,0.03
+2021,"2021-08-22","D+D Real Czech Masters","EURO",124,-2.01,-2.67,-0.81,-3.97,-0.37
+2021,"2021-08-22","THE NORTHERN TRUST","PGA",123,0.6,0.18,1.01,-0.08,1.48
+2021,"2021-08-15","Wyndham Championship","PGA",156,-0.2,-0.59,0.33,-1.13,0.67
+2021,"2021-08-15","Pinnacle Bank Championship presented by Aetna","KFT",156,-1,-1.45,-0.55,-1.77,-0.2
+2021,"2021-08-15","Cazoo Classic","EURO",143,-1.3,-1.99,-0.55,-2.62,-0.25
+2021,"2021-08-08","Utah Championship presented by Zions Bank","KFT",155,-1.19,-1.53,-0.69,-2.13,-0.3
+2021,"2021-08-08","Hero Open","EURO",143,-1.44,-2.08,-0.73,-2.69,-0.35
+2021,"2021-08-08","Barracuda Championship","PGA",132,-0.68,-1.1,0.02,-1.97,0.36
+2021,"2021-08-08","World Golf Championships-FedEx St. Jude Invitational","PGA",66,0.83,0.43,1.42,-0.07,1.64
+2021,"2021-08-01","ISPS HANDA World Invitational presented by Modest! Golf Management","EURO",143,-1.65,-2.24,-0.81,-3.04,-0.4
+2021,"2021-08-01","Olympic Men's Golf Competition","PGA",60,0.13,-0.57,0.92,-0.88,1.37
+2021,"2021-07-25","Price Cutter Charity Championship presented by Dr Pepper","KFT",156,-1.12,-1.49,-0.55,-2.09,-0.23
+2021,"2021-07-25","Cazoo Open supported by Gareth Bale","EURO",133,-1.45,-2.17,-0.65,-2.84,-0.13
+2021,"2021-07-25","3M Open","PGA",155,-0.39,-0.89,0.25,-1.64,0.58
+2021,"2021-07-18","The Open Championship","PGA",156,-0.02,-0.7,0.88,-2.12,1.4
+2021,"2021-07-18","Memorial Health Championship presented by LRS","KFT",156,-1.21,-1.6,-0.65,-2.12,-0.28
+2021,"2021-07-18","Barbasol Championship","PGA",131,-1.15,-2.03,-0.18,-3.19,0.15
+2021,"2021-07-11","TPC Colorado Championship at Heron Lakes","KFT",155,-1.12,-1.46,-0.58,-2.07,-0.19
+2021,"2021-07-11","abrdn Scottish Open","EURO",156,-0.49,-0.96,0.11,-1.74,0.6
+2021,"2021-07-11","John Deere Classic","PGA",154,-0.61,-1.15,0.13,-2.26,0.49
+2021,"2021-07-04","Dubai Duty Free Irish Open","EURO",155,-0.94,-1.42,-0.29,-2.25,0.13
+2021,"2021-07-04","Rocket Mortgage Classic","PGA",156,-0.25,-0.67,0.3,-1.35,0.66
+2021,"2021-06-27","Live and Work in Maine Open","KFT",156,-1.25,-1.61,-0.58,-2.38,-0.3
+2021,"2021-06-27","BMW International Open","EURO",156,-1.09,-1.61,-0.53,-2.4,-0.03
+2021,"2021-06-27","Travelers Championship","PGA",156,-0.02,-0.37,0.55,-1.11,1.05
+2021,"2021-06-20","Wichita Open Benefitting KU Wichita Pediatrics","KFT",156,-1.21,-1.54,-0.63,-2.41,-0.27
+2021,"2021-06-20","U.S. Open","PGA",156,-0.12,-0.77,0.9,-2.18,1.55
+2021,"2021-06-13","Scandinavian Mixed Hosted by Henrik & Annika","EURO",78,-1.01,-1.48,-0.44,-2.04,-0.17
+2021,"2021-06-13","BMW Charity Pro-Am presented by SYNNEX Corporation","KFT",160,-1.15,-1.6,-0.58,-2.06,-0.26
+2021,"2021-06-13","Palmetto Championship at Congaree","PGA",156,-0.74,-1.24,0.08,-2.39,0.41
+2021,"2021-06-06","Porsche European Open","EURO",151,-1.14,-1.65,-0.56,-2.35,-0.07
+2021,"2021-06-06","the Memorial Tournament presented by Nationwide","PGA",119,0.36,-0.07,0.92,-0.77,1.47
+2021,"2021-06-06","REX Hospital Open","KFT",156,-1.09,-1.41,-0.6,-1.81,-0.18
+2021,"2021-05-30","Evans Scholars Invitational presented by First Midwest Bank","KFT",156,-1.26,-1.72,-0.63,-2.24,-0.32
+2021,"2021-05-30","Made in HimmerLand presented by FREJA","EURO",156,-1.1,-1.59,-0.58,-2.2,-0.09
+2021,"2021-05-30","Charles Schwab Challenge","PGA",121,0.16,-0.23,0.7,-0.65,1.3
+2021,"2021-05-23","AdventHealth Championship","KFT",156,-1.35,-1.77,-0.85,-2.35,-0.46
+2021,"2021-05-23","PGA Championship","PGA",155,-0.02,-0.18,0.91,-3.21,1.45
+2021,"2021-05-16","Visit Knoxville Open","KFT",155,-1.32,-1.85,-0.72,-2.42,-0.29
+2021,"2021-05-16","AT&T Byron Nelson","PGA",156,-0.41,-0.97,0.26,-1.84,0.68
+2021,"2021-05-15","Betfred British Masters hosted by Danny Willett","EURO",155,-1.1,-1.51,-0.52,-2.26,-0.15
+2021,"2021-05-09","Simmons Bank Open for the Snedeker Foundation","KFT",155,-1.09,-1.43,-0.6,-1.94,-0.15
+2021,"2021-05-09","Canary Islands Championship","EURO",131,-1.44,-2.09,-0.7,-2.69,-0.33
+2021,"2021-05-09","Wells Fargo Championship","PGA",155,-0.01,-0.51,0.53,-0.99,1.2
+2021,"2021-05-02","Huntsville Championship","KFT",155,-1.11,-1.5,-0.59,-1.96,-0.22
+2021,"2021-05-02","Tenerife Open","EURO",151,-1.21,-1.82,-0.61,-2.35,-0.16
+2021,"2021-05-02","Valspar Championship","PGA",156,-0.2,-0.75,0.53,-1.41,0.99
+2021,"2021-04-25","Veritex Bank Championship","KFT",156,-1.21,-1.7,-0.67,-2.17,-0.24
+2021,"2021-04-25","Gran Canaria Lopesan Open","EURO",151,-1.26,-1.9,-0.63,-2.41,-0.18
+2021,"2021-04-18","RBC Heritage","PGA",134,0.12,-0.34,0.68,-0.96,1.19
+2021,"2021-04-18","MGM Resorts Championship at Paiute","KFT",156,-1.1,-1.4,-0.55,-2.19,-0.2
+2021,"2021-04-18","Austrian Golf Open","EURO",142,-1.51,-2.14,-0.76,-2.67,-0.34
+2021,"2021-04-11","The Masters","PGA",88,0.41,0.16,1.33,-1.33,1.63
+2021,"2021-04-04","Emerald Coast Classic at Sandestin","KFT",156,-1.1,-1.41,-0.61,-2.08,-0.24
+2021,"2021-04-04","Valero Texas Open","PGA",144,-0.26,-0.65,0.35,-1.34,0.66
+2021,"2021-03-28","Club Car Championship at The Landings Club","KFT",156,-1.23,-1.6,-0.65,-2.28,-0.31
+2021,"2021-03-28","Corales Puntacana Resort & Club Championship #2","PGA",132,-1.09,-1.65,-0.16,-2.97,0.22
+2021,"2021-03-26","Kenya Savannah Classic","EURO",155,-1.69,-1.99,-0.7,-3.61,-0.3
+2021,"2021-03-21","The Honda Classic","PGA",143,-0.31,-0.81,0.29,-1.39,0.63
+2021,"2021-03-21","Magical Kenya Open","EURO",156,-1.7,-2.05,-0.65,-4.24,-0.3
+2021,"2021-03-21","Chitimacha Louisiana Open presented by MISTRAS","KFT",143,-1.11,-1.36,-0.57,-2.18,-0.28
+2021,"2021-03-14","THE PLAYERS Championship","PGA",154,0.47,0.02,0.91,-0.38,1.53
+2021,"2021-03-14","Commercial Bank Qatar Masters","EURO",143,-1.17,-1.51,-0.45,-2.2,-0.02
+2021,"2021-03-07","Arnold Palmer Invitational presented by Mastercard","PGA",123,0.21,0.03,0.66,-0.67,1.17
+2021,"2021-02-28","World Golf Championships-Workday Championship at The Concession","PGA",72,0.68,0.16,1.23,-0.54,1.62
+2021,"2021-02-28","Puerto Rico Open","PGA",132,-1.37,-2.23,-0.32,-3.28,0.2
+2021,"2021-02-21","LECOM Suncoast Classic","KFT",143,-1.05,-1.41,-0.53,-1.98,-0.18
+2021,"2021-02-21","The Genesis Invitational","PGA",120,0.38,0.06,0.79,-0.59,1.18
+2021,"2021-02-14","AT&T Pebble Beach Pro-Am","PGA",156,-0.55,-1.09,0.25,-1.97,0.58
+2021,"2021-02-07","Saudi International powered by SoftBank Investment Advisers","EURO",138,-0.65,-1.15,0.05,-1.88,0.67
+2021,"2021-02-07","Waste Management Phoenix Open","PGA",132,0.12,-0.24,0.6,-0.96,1.18
+2021,"2021-01-31","Omega Dubai Desert Classic","EURO",131,-0.68,-1.06,-0.01,-1.88,0.42
+2021,"2021-01-31","Farmers Insurance Open","PGA",156,-0.09,-0.63,0.6,-1.26,0.97
+2021,"2021-01-24","The American Express","PGA",156,-0.18,-0.53,0.36,-1.21,0.76
+2021,"2021-01-24","Abu Dhabi HSBC Championship","EURO",130,-0.69,-1.19,-0.14,-1.86,0.45
+2021,"2021-01-17","Sony Open in Hawaii","PGA",144,-0.28,-0.78,0.33,-1.73,0.96
+2021,"2021-01-10","Sentry Tournament of Champions","PGA",42,0.98,0.61,1.63,-0.21,1.89
+2021,"2020-12-06","Mayakoba Golf Classic presented by UNIFIN","PGA",132,-0.19,-0.62,0.4,-1.33,0.75
+2021,"2020-11-22","The RSM Classic","PGA",155,-0.02,-0.49,0.52,-0.9,1.04
+2021,"2020-11-08","Vivint Houston Open","PGA",132,-0.05,-0.41,0.51,-1.24,0.9
+2021,"2020-11-01","Bermuda Championship","PGA",132,-0.77,-1.3,-0.02,-2.4,0.32
+2021,"2020-10-25","ZOZO CHAMPIONSHIP @ SHERWOOD","PGA",77,0.66,0.34,1.19,-0.45,1.64
+2021,"2020-10-18","THE CJ CUP @ SHADOW CREEK","PGA",78,0.64,0.27,1.06,-0.41,1.54
+2021,"2020-10-11","Shriners Hospitals for Children Open","PGA",144,-0.04,-0.35,0.56,-1.16,0.93
+2021,"2020-10-04","Sanderson Farms Championship","PGA",144,-0.34,-0.54,0.21,-1.55,0.52
+2021,"2020-09-13","Safeway Open","PGA",156,-0.47,-0.96,0.22,-1.5,0.58
+2022,"2022-11-20","DP World Tour Championship","EURO",50,0.06,-0.44,0.55,-0.69,1.1
+2022,"2022-11-13","Nedbank Golf Challenge","EURO",66,-0.33,-0.7,0.04,-0.99,0.45
+2022,"2022-10-30","Portugal Masters","EURO",118,-1.25,-1.74,-0.58,-2.79,-0.3
+2022,"2022-10-23","Mallorca Golf Open","EURO",120,-1.26,-1.71,-0.56,-2.55,-0.31
+2022,"2022-10-16","Estrella Damm N.A. Andalucía  Masters","EURO",126,-0.83,-1.2,-0.41,-1.8,-0.1
+2022,"2022-10-16","Jeddah","LIV",48,-0.09,-0.66,0.47,-1.27,0.77
+2022,"2022-10-09","acciona Open de España presented by Madrid","EURO",129,-1.56,-2.17,-0.81,-2.96,-0.42
+2022,"2022-10-09","Bangkok","LIV",48,-0.07,-0.61,0.45,-1.28,0.79
+2022,"2022-10-02","Alfred Dunhill Links Championship","EURO",168,-0.94,-1.55,-0.35,-2.32,0.22
+2022,"2022-09-25","Cazoo Open de France","EURO",154,-1.21,-1.88,-0.52,-2.45,-0.06
+2022,"2022-09-18","DS Automobiles Italian Open","EURO",156,-1.14,-1.83,-0.36,-2.64,0
+2022,"2022-09-18","Chicago","LIV",48,-0.05,-0.58,0.49,-1.36,0.93
+2022,"2022-09-11","BMW PGA Championship","EURO",143,-0.51,-0.96,-0.03,-1.59,0.62
+2022,"2022-09-04","Made in HimmerLand","EURO",147,-1.25,-1.8,-0.61,-2.55,-0.25
+2022,"2022-09-04","Boston","LIV",48,-0.13,-0.55,0.48,-1.25,0.86
+2022,"2022-09-04","Korn Ferry Tour Championship presented by United Leasing & Finance","KFT",138,-0.7,-0.95,-0.38,-1.28,-0.07
+2022,"2022-08-28","Omega European Masters","EURO",156,-1.51,-2.16,-0.71,-2.86,-0.24
+2022,"2022-08-28","TOUR Championship","PGA",29,1.32,1.01,1.71,0.83,1.99
+2022,"2022-08-28","Nationwide Children's Hospital Championship","KFT",140,-0.66,-0.91,-0.33,-1.27,-0.02
+2022,"2022-08-21","D+D Real Czech Masters","EURO",129,-2.01,-2.58,-0.79,-4.05,-0.38
+2022,"2022-08-21","Albertsons Boise Open presented by Chevron","KFT",142,-0.69,-0.99,-0.36,-1.22,-0.11
+2022,"2022-08-21","BMW Championship","PGA",68,0.88,0.48,1.2,0.26,1.8
+2022,"2022-08-14","Pinnacle Bank Championship presented by Aetna","KFT",156,-1.06,-1.42,-0.75,-1.76,-0.31
+2022,"2022-08-14","ISPS Handa World Invitational presented by AVIV Clinics","EURO",132,-1.98,-2.47,-1.23,-3.06,-0.76
+2022,"2022-08-14","FedEx St. Jude Championship","PGA",120,0.52,0.09,0.86,-0.08,1.31
+2022,"2022-08-07","Wyndham Championship","PGA",156,-0.29,-0.87,0.19,-1.24,0.74
+2022,"2022-08-07","Cazoo Open supported by Gareth Bale","EURO",156,-1.56,-2.25,-0.77,-2.96,-0.41
+2022,"2022-08-07","Utah Championship presented by Zions Bank","KFT",156,-1.23,-1.53,-0.81,-1.9,-0.47
+2022,"2022-07-31","Hero Open","EURO",156,-1.58,-2.24,-0.83,-2.87,-0.4
+2022,"2022-07-31","Bedminster","LIV",48,-0.25,-0.69,0.47,-1.37,0.85
+2022,"2022-07-31","Rocket Mortgage Classic","PGA",155,-0.33,-0.82,0.23,-1.43,0.66
+2022,"2022-07-24","Cazoo Classic","EURO",138,-1.56,-2.26,-0.91,-2.89,-0.39
+2022,"2022-07-24","Price Cutter Charity Championship presented by Dr Pepper","KFT",156,-1.2,-1.49,-0.75,-2,-0.34
+2022,"2022-07-24","3M Open","PGA",155,-0.8,-1.35,-0.02,-2.52,0.33
+2022,"2022-07-17","The Open Championship","PGA",156,-0.19,-0.92,0.76,-2.32,1.33
+2022,"2022-07-17","Memorial Health Championship presented by LRS","KFT",155,-1.22,-1.57,-0.74,-2.1,-0.36
+2022,"2022-07-17","Barracuda Championship","PGA",155,-1.03,-1.51,-0.43,-2.43,0
+2022,"2022-07-10","Barbasol Championship","PGA",155,-1.2,-1.64,-0.44,-2.72,-0.13
+2022,"2022-07-10","Genesis Scottish Open","PGA",160,-0.02,-0.59,0.57,-1.03,1.16
+2022,"2022-07-03","The Ascendant presented by Blue","KFT",156,-1.22,-1.55,-0.71,-2.03,-0.37
+2022,"2022-07-03","Portland","LIV",48,-0.36,-0.94,0.2,-1.74,0.67
+2022,"2022-07-03","Horizon Irish Open","EURO",156,-0.94,-1.4,-0.38,-2.16,0.04
+2022,"2022-07-03","John Deere Classic","PGA",156,-0.83,-1.29,-0.02,-2.36,0.34
+2022,"2022-06-26","Live and Work in Maine Open","KFT",155,-1.5,-1.81,-0.96,-2.68,-0.52
+2022,"2022-06-26","BMW International Open","EURO",156,-1.12,-1.62,-0.48,-2.38,-0.1
+2022,"2022-06-26","Travelers Championship","PGA",155,-0.06,-0.57,0.47,-1.11,0.99
+2022,"2022-06-19","Wichita Open Benefitting KU Wichita Pediatrics","KFT",155,-1.4,-1.79,-0.91,-2.45,-0.48
+2022,"2022-06-19","U.S. Open","PGA",156,-0.09,-0.74,0.85,-1.91,1.42
+2022,"2022-06-12","Volvo Car Scandinavian Mixed","EURO",78,-1.13,-1.43,-0.72,-2.01,-0.28
+2022,"2022-06-12","RBC Canadian Open","PGA",155,-0.76,-1.28,0.06,-2.73,0.67
+2022,"2022-06-12","BMW Charity Pro-Am presented by TD SYNNEX","KFT",160,-1.37,-1.86,-0.83,-2.43,-0.44
+2022,"2022-06-11","London","LIV",48,-0.59,-1.17,-0.03,-1.95,0.49
+2022,"2022-06-05","Porsche European Open","EURO",155,-1.13,-1.56,-0.55,-2.3,-0.16
+2022,"2022-06-05","the Memorial Tournament presented by Workday","PGA",119,0.28,-0.09,0.72,-0.83,1.29
+2022,"2022-06-05","REX Hospital Open","KFT",156,-1.27,-1.59,-0.7,-2.27,-0.44
+2022,"2022-05-29","NV5 Invitational presented by Old National Bank","KFT",155,-1.44,-1.9,-0.82,-2.48,-0.57
+2022,"2022-05-29","Dutch Open","EURO",156,-1.1,-1.48,-0.5,-2.28,-0.17
+2022,"2022-05-29","Charles Schwab Challenge","PGA",120,0.18,-0.22,0.69,-0.74,1.15
+2022,"2022-05-22","AdventHealth Championship","KFT",155,-1.49,-1.9,-0.82,-2.84,-0.48
+2022,"2022-05-22","PGA Championship","PGA",156,-0.09,-0.28,0.89,-3.56,1.3
+2022,"2022-05-15","Visit Knoxville Open","KFT",156,-1.34,-1.76,-0.72,-2.39,-0.46
+2022,"2022-05-15","AT&T Byron Nelson","PGA",156,-0.14,-0.53,0.32,-0.98,0.79
+2022,"2022-05-15","Soudal Open","EURO",156,-1.45,-1.95,-0.72,-2.9,-0.28
+2022,"2022-05-08","Simmons Bank Open for the Snedeker Foundation","KFT",155,-1.3,-1.7,-0.76,-2.25,-0.45
+2022,"2022-05-08","Betfred British Masters hosted by Danny Willett","EURO",156,-0.97,-1.3,-0.44,-2.11,-0.1
+2022,"2022-05-08","Wells Fargo Championship","PGA",155,-0.24,-0.67,0.3,-0.99,0.67
+2022,"2022-05-01","Huntsville Championship","KFT",156,-1.45,-1.84,-0.8,-2.49,-0.57
+2022,"2022-05-01","Catalunya Championship","EURO",156,-1.09,-1.57,-0.53,-2.19,-0.14
+2022,"2022-05-01","Mexico Open at Vidanta","PGA",144,-0.61,-1.04,0.01,-2.05,0.42
+2022,"2022-04-24","ISPS Handa Championship in Spain","EURO",156,-1.2,-1.67,-0.6,-2.35,-0.28
+2022,"2022-04-17","RBC Heritage","PGA",131,0.13,-0.39,0.62,-0.72,1.16
+2022,"2022-04-16","Veritex Bank Championship","KFT",156,-1.24,-1.62,-0.71,-2.08,-0.46
+2022,"2022-04-10","The Masters","PGA",90,0.23,-0.18,1.16,-1.56,1.49
+2022,"2022-04-03","Club Car Championship at The Landings Club","KFT",155,-1.23,-1.63,-0.71,-2.13,-0.41
+2022,"2022-04-03","Valero Texas Open","PGA",143,-0.16,-0.46,0.29,-0.83,0.56
+2022,"2022-03-27","Lake Charles Championship","KFT",156,-1.39,-1.8,-0.75,-2.67,-0.51
+2022,"2022-03-27","Commercial Bank Qatar Masters","EURO",139,-1.3,-1.72,-0.57,-2.5,-0.25
+2022,"2022-03-27","Corales Puntacana Championship","PGA",120,-0.99,-1.33,-0.18,-2.93,0.17
+2022,"2022-03-20","Steyn City Championship","EURO",155,-1.52,-2.23,-0.59,-3.07,-0.25
+2022,"2022-03-20","Chitimacha Louisiana Open presented by MISTRAS","KFT",144,-1.23,-1.52,-0.73,-2.16,-0.4
+2022,"2022-03-20","Valspar Championship","PGA",144,-0.12,-0.54,0.45,-1.02,0.89
+2022,"2022-03-13","THE PLAYERS Championship","PGA",143,0.46,-0.06,0.85,-0.3,1.37
+2022,"2022-03-13","MyGolfLife Open hosted by Pecanwood","EURO",155,-1.53,-2.18,-0.52,-3.35,-0.16
+2022,"2022-03-06","Magical Kenya Open","EURO",143,-1.7,-2.02,-0.68,-3.83,-0.27
+2022,"2022-03-06","Puerto Rico Open","PGA",120,-1.53,-2.57,-0.49,-3.72,-0.2
+2022,"2022-03-06","Arnold Palmer Invitational presented by Mastercard","PGA",120,0.35,-0.03,0.77,-0.43,1.07
+2022,"2022-02-27","The Honda Classic","PGA",144,-0.16,-0.57,0.27,-0.97,0.76
+2022,"2022-02-20","LECOM Suncoast Classic","KFT",144,-1.18,-1.44,-0.7,-2.1,-0.5
+2022,"2022-02-20","The Genesis Invitational","PGA",120,0.41,0.03,0.84,-0.27,1.31
+2022,"2022-02-13","Astara Golf Championship presented by Mastercard","KFT",155,-1.54,-1.95,-0.87,-2.98,-0.6
+2022,"2022-02-13","Ras al Khaimah Classic","EURO",132,-0.97,-1.23,-0.38,-1.95,-0.05
+2022,"2022-02-13","WM Phoenix Open","PGA",132,0.1,-0.28,0.53,-0.61,1.05
+2022,"2022-02-06","Ras al Khaimah Championship presented by Phoenix Capital","EURO",132,-0.99,-1.22,-0.33,-2.1,-0.01
+2022,"2022-02-06","AT&T Pebble Beach Pro-Am","PGA",156,-0.43,-0.75,0.26,-1.82,0.58
+2022,"2022-02-06","The Panama Championship","KFT",144,-1.39,-1.78,-0.77,-2.68,-0.48
+2022,"2022-01-30","Slync.io Dubai Desert Classic","EURO",132,-0.5,-0.85,-0.08,-1.4,0.54
+2022,"2022-01-29","Farmers Insurance Open","PGA",156,0.01,-0.33,0.48,-0.73,0.93
+2022,"2022-01-26","The Bahamas Great Abaco Classic at The Abaco Club","KFT",131,-1.26,-1.58,-0.77,-2.34,-0.45
+2022,"2022-01-23","The American Express","PGA",156,-0.05,-0.4,0.3,-0.7,0.65
+2022,"2022-01-23","Abu Dhabi HSBC Championship","EURO",132,-0.58,-0.87,-0.16,-1.22,0.4
+2022,"2022-01-19","The Bahamas Great Exuma Classic at Sandals Emerald Bay","KFT",132,-1.27,-1.58,-0.77,-2.22,-0.49
+2022,"2022-01-16","Sony Open in Hawaii","PGA",144,-0.2,-0.52,0.31,-0.86,0.8
+2022,"2022-01-09","Sentry Tournament of Champions","PGA",38,0.93,0.37,1.53,0.04,1.79
+2022,"2021-12-05","Hero World Challenge","PGA",20,1.27,1.11,1.59,0.76,1.68
+2022,"2021-11-28","Joburg Open","EURO",156,-1.83,-2.45,-0.82,-3.49,-0.44
+2022,"2021-11-21","The RSM Classic","PGA",156,-0.04,-0.38,0.38,-0.74,0.7
+2022,"2021-11-14","Hewlett Packard Enterprise Houston Open","PGA",132,0.09,-0.21,0.49,-0.72,1
+2022,"2021-11-07","World Wide Technology Championship at Mayakoba","PGA",132,0.12,-0.19,0.59,-0.66,0.98
+2022,"2021-10-31","Butterfield Bermuda Championship","PGA",126,-0.83,-1.51,0.07,-3.03,0.4
+2022,"2021-10-24","ZOZO CHAMPIONSHIP","PGA",78,-0.01,-0.37,0.56,-0.99,0.93
+2022,"2021-10-17","THE CJ CUP @ SUMMIT","PGA",78,0.64,0.35,1.14,-0.42,1.41
+2022,"2021-10-10","Shriners Children's Open","PGA",144,0.14,-0.14,0.48,-0.59,1.02
+2022,"2021-10-03","Sanderson Farms Championship","PGA",144,-0.07,-0.3,0.39,-0.81,0.62
+2022,"2021-09-19","Fortinet Championship","PGA",156,-0.14,-0.46,0.21,-0.92,0.57
+2023,"2023-12-03","Hero World Challenge #2","PGA",20,1.06,0.79,1.23,0.48,2
+2023,"2023-11-19","DP World Tour Championship","EURO",50,0.31,-0.13,0.62,-0.41,1.31
+2023,"2023-11-19","The RSM Classic #2","PGA",155,-0.49,-0.96,0.15,-1.47,0.5
+2023,"2023-11-12","Nedbank Golf Challenge","EURO",66,-0.15,-0.48,0.26,-0.85,0.57
+2023,"2023-11-12","Butterfield Bermuda Championship #2","PGA",132,-1.18,-1.72,-0.32,-2.98,0.19
+2023,"2023-11-05","World Wide Technology Championship #2","PGA",132,-0.52,-1.02,0.07,-1.54,0.45
+2023,"2023-10-29","Commercial Bank Qatar Masters","EURO",129,-1.13,-1.42,-0.4,-2.24,0.13
+2023,"2023-10-22","Estrella Damm N.A. Andalucía  Masters","EURO",125,-0.78,-1.16,-0.28,-1.89,0.05
+2023,"2023-10-22","ZOZO CHAMPIONSHIP #2","PGA",78,0.12,-0.27,0.51,-0.68,0.95
+2023,"2023-10-15","acciona Open de España presented by Madrid","EURO",132,-0.96,-1.23,-0.44,-1.97,-0.04
+2023,"2023-10-15","Jeddah","LIV",48,-0.12,-0.43,0.38,-1.3,0.67
+2023,"2023-10-15","Shriners Children's Open #2","PGA",131,-0.33,-0.65,0.21,-1.25,0.54
+2023,"2023-10-08","Alfred Dunhill Links Championship","EURO",167,-1.01,-1.58,-0.41,-2.37,0.08
+2023,"2023-10-08","Korn Ferry Tour Championship presented by United Leasing & Finance","KFT",73,-0.55,-0.77,-0.31,-0.99,-0.03
+2023,"2023-10-08","Sanderson Farms Championship #2","PGA",144,-0.61,-1.03,-0.03,-1.65,0.35
+2023,"2023-09-24","Chicago","LIV",48,-0.1,-0.49,0.5,-1.16,0.73
+2023,"2023-09-24","Cazoo Open de France","EURO",153,-1.15,-1.85,-0.5,-2.6,-0.03
+2023,"2023-09-24","Nationwide Children's Hospital Championship","KFT",120,-0.77,-1.05,-0.46,-1.38,-0.16
+2023,"2023-09-17","Simmons Bank Open for the Snedeker Foundation","KFT",144,-0.89,-1.27,-0.5,-1.49,-0.22
+2023,"2023-09-17","BMW PGA Championship","EURO",138,-0.48,-1.07,-0.07,-1.59,0.72
+2023,"2023-09-17","Fortinet Championship #2","PGA",156,-0.74,-1.19,-0.04,-2.08,0.32
+2023,"2023-09-10","Horizon Irish Open","EURO",156,-0.78,-1.23,-0.28,-1.98,0.28
+2023,"2023-09-03","Omega European Masters","EURO",156,-1.12,-1.34,-0.46,-2.58,0.06
+2023,"2023-08-27","D+D Real Czech Masters","EURO",154,-1.34,-1.78,-0.54,-2.77,-0.07
+2023,"2023-08-27","Albertsons Boise Open presented by Chevron","KFT",156,-0.93,-1.28,-0.55,-1.61,-0.24
+2023,"2023-08-27","TOUR Championship","PGA",30,1.36,0.92,1.65,0.69,2.07
+2023,"2023-08-20","Magnit Championship","KFT",156,-1.02,-1.33,-0.59,-1.66,-0.3
+2023,"2023-08-20","ISPS Handa World Invitational presented by AVIV Clinics","EURO",139,-1.63,-2.19,-0.91,-3.05,-0.5
+2023,"2023-08-20","BMW Championship","PGA",50,1.12,0.73,1.33,0.56,1.86
+2023,"2023-08-13","Pinnacle Bank Championship presented by Aetna","KFT",156,-1.12,-1.29,-0.58,-2.04,-0.26
+2023,"2023-08-13","Bedminster","LIV",48,-0.05,-0.46,0.5,-0.91,0.89
+2023,"2023-08-13","FedEx St. Jude Championship","PGA",70,0.87,0.51,1.15,0.19,1.57
+2023,"2023-08-06","Wyndham Championship","PGA",156,-0.27,-0.69,0.34,-1.26,0.67
+2023,"2023-08-06","Greenbrier","LIV",48,-0.07,-0.48,0.44,-1.04,0.85
+2023,"2023-08-06","Utah Championship presented by Zions Bank","KFT",154,-1.21,-1.54,-0.64,-2.15,-0.36
+2023,"2023-07-30","NV5 Invitational presented by Old National Bank","KFT",155,-1.08,-1.39,-0.58,-1.85,-0.26
+2023,"2023-07-30","3M Open","PGA",156,-0.45,-0.86,0.15,-1.45,0.65
+2023,"2023-07-23","The Open Championship","PGA",156,-0.03,-0.69,0.84,-1.65,1.25
+2023,"2023-07-23","Price Cutter Charity Championship presented by Dr Pepper","KFT",155,-1.19,-1.46,-0.69,-2.19,-0.28
+2023,"2023-07-23","Barracuda Championship","PGA",156,-0.83,-1.22,-0.35,-1.77,0.06
+2023,"2023-07-16","The Ascendant presented by Blue","KFT",155,-1.14,-1.46,-0.64,-2.13,-0.33
+2023,"2023-07-16","Barbasol Championship","PGA",155,-1.25,-1.58,-0.59,-2.63,-0.28
+2023,"2023-07-16","Genesis Scottish Open","PGA",155,-0.03,-0.57,0.5,-1.05,0.96
+2023,"2023-07-09","London","LIV",48,-0.02,-0.38,0.51,-0.82,1.01
+2023,"2023-07-09","Made in HimmerLand","EURO",156,-1.3,-1.85,-0.67,-2.51,-0.26
+2023,"2023-07-09","John Deere Classic","PGA",156,-0.57,-0.96,0.1,-1.68,0.5
+2023,"2023-07-02","Memorial Health Championship presented by LRS","KFT",155,-1.22,-1.54,-0.71,-2.13,-0.37
+2023,"2023-07-02","Valderrama","LIV",48,-0.03,-0.46,0.43,-0.77,0.87
+2023,"2023-07-02","Betfred British Masters","EURO",156,-1.06,-1.51,-0.54,-2.33,-0.11
+2023,"2023-07-02","Rocket Mortgage Classic","PGA",156,-0.34,-0.82,0.31,-1.3,0.63
+2023,"2023-06-25","Compliance Solutions Championship","KFT",156,-1.19,-1.48,-0.65,-2.18,-0.38
+2023,"2023-06-25","BMW International Open","EURO",155,-1.27,-1.76,-0.62,-2.44,-0.2
+2023,"2023-06-25","Travelers Championship","PGA",155,0.13,-0.43,0.61,-1.04,1.28
+2023,"2023-06-18","Blue Cross and Blue Shield of Kansas Wichita Open","KFT",156,-1.37,-1.81,-0.78,-2.44,-0.47
+2023,"2023-06-18","U.S. Open","PGA",156,-0.11,-0.81,0.77,-1.87,1.33
+2023,"2023-06-11","Volvo Car Scandinavian Mixed","EURO",78,-0.87,-1.18,-0.47,-1.76,-0.04
+2023,"2023-06-11","RBC Canadian Open","PGA",156,-0.68,-1.16,0.11,-2.18,0.58
+2023,"2023-06-11","BMW Charity Pro-Am presented by TD SYNNEX","KFT",160,-1.35,-1.77,-0.81,-2.55,-0.42
+2023,"2023-06-04","Porsche European Open","EURO",155,-1.25,-1.72,-0.63,-2.56,-0.25
+2023,"2023-06-04","the Memorial Tournament presented by Workday","PGA",119,0.34,-0.09,0.72,-0.73,1.2
+2023,"2023-06-04","UNC Health Championship presented by STITCH","KFT",156,-1.19,-1.54,-0.69,-2.18,-0.41
+2023,"2023-05-28","Visit Knoxville Open","KFT",156,-1.18,-1.5,-0.75,-1.98,-0.45
+2023,"2023-05-28","DC","LIV",48,-0.03,-0.49,0.43,-0.98,0.93
+2023,"2023-05-28","KLM Open","EURO",155,-1.2,-1.73,-0.57,-2.5,-0.3
+2023,"2023-05-28","Charles Schwab Challenge","PGA",120,0.1,-0.38,0.57,-0.8,1.01
+2023,"2023-05-21","AdventHealth Championship","KFT",155,-1.18,-1.54,-0.73,-1.94,-0.31
+2023,"2023-05-21","PGA Championship","PGA",156,-0.04,-0.3,0.84,-2.87,1.35
+2023,"2023-05-14","Tulsa","LIV",48,-0.04,-0.43,0.42,-0.91,0.97
+2023,"2023-05-14","AT&T Byron Nelson","PGA",156,-0.68,-1.17,0,-2.02,0.51
+2023,"2023-05-14","Soudal Open","EURO",156,-1.55,-2.05,-0.72,-3.23,-0.36
+2023,"2023-05-07","DS Automobiles Italian Open","EURO",156,-1.14,-1.61,-0.52,-2.31,-0.15
+2023,"2023-05-07","Wells Fargo Championship","PGA",154,0.01,-0.42,0.57,-0.98,1.17
+2023,"2023-04-30","Singapore","LIV",48,-0.03,-0.38,0.44,-0.88,0.86
+2023,"2023-04-30","HomeTown Lenders Championship","KFT",156,-1.25,-1.61,-0.71,-2.06,-0.35
+2023,"2023-04-30","Korea Championship Presented by Genesis","EURO",155,-1.34,-1.91,-0.74,-2.51,-0.22
+2023,"2023-04-30","Mexico Open at Vidanta","PGA",144,-0.78,-1.19,-0.13,-2.19,0.34
+2023,"2023-04-23","Adelaide","LIV",48,-0.01,-0.4,0.47,-0.63,0.84
+2023,"2023-04-23","LECOM Suncoast Classic","KFT",156,-1.33,-1.72,-0.68,-2.41,-0.4
+2023,"2023-04-23","ISPS HANDA - CHAMPIONSHIP","EURO",144,-1.14,-1.63,-0.54,-2.07,-0.16
+2023,"2023-04-16","RBC Heritage","PGA",142,0.14,-0.42,0.7,-0.92,1.29
+2023,"2023-04-16","Veritex Bank Championship","KFT",156,-1.22,-1.47,-0.75,-2.05,-0.49
+2023,"2023-04-09","Masters Tournament","PGA",86,0.25,-0.11,1.01,-1.25,1.58
+2023,"2023-04-02","Orlando","LIV",48,-0.03,-0.32,0.49,-0.91,0.95
+2023,"2023-04-02","Astara Chile Classic","KFT",156,-1.52,-1.89,-0.92,-2.52,-0.58
+2023,"2023-04-02","Valero Texas Open","PGA",143,-0.37,-0.7,0.1,-1.19,0.56
+2023,"2023-03-26","Club Car Championship at The Landings Golf & Athletic Club","KFT",156,-1.3,-1.7,-0.83,-2.03,-0.51
+2023,"2023-03-26","Jonsson Workwear Open","EURO",156,-1.78,-2.37,-0.79,-3.55,-0.38
+2023,"2023-03-26","Corales Puntacana Championship","PGA",120,-1.3,-2.07,-0.35,-3.16,0.01
+2023,"2023-03-19","Tucson","LIV",48,0.01,-0.3,0.48,-1,0.91
+2023,"2023-03-19","SDC Championship","EURO",155,-1.62,-2.3,-0.75,-3.16,-0.41
+2023,"2023-03-19","Valspar Championship","PGA",144,-0.39,-0.81,0.16,-1.31,0.59
+2023,"2023-03-12","THE PLAYERS Championship","PGA",144,0.33,-0.12,0.7,-0.51,1.36
+2023,"2023-03-12","Magical Kenya Open","EURO",156,-1.86,-2.22,-0.81,-4.04,-0.47
+2023,"2023-03-05","Puerto Rico Open","PGA",120,-1.97,-2.86,-0.71,-4.45,-0.31
+2023,"2023-03-05","Arnold Palmer Invitational presented by Mastercard","PGA",120,0.41,0,0.82,-0.4,1.43
+2023,"2023-02-26","The Honda Classic","PGA",144,-0.51,-1.05,0.04,-1.53,0.48
+2023,"2023-02-26","Hero Indian Open","EURO",118,-1.83,-2.63,-0.88,-3.15,-0.55
+2023,"2023-02-26","Mayakoba","LIV",48,0.05,-0.22,0.42,-1,0.92
+2023,"2023-02-19","Thailand Classic","EURO",132,-1.12,-1.68,-0.48,-2.33,-0.23
+2023,"2023-02-19","The Genesis Invitational","PGA",129,0.28,-0.19,0.84,-0.74,1.33
+2023,"2023-02-12","Astara Golf Championship presented by Mastercard","KFT",155,-1.33,-1.67,-0.78,-2.11,-0.47
+2023,"2023-02-12","Singapore Classic","EURO",132,-1.11,-1.66,-0.46,-2.39,-0.2
+2023,"2023-02-12","WM Phoenix Open","PGA",134,0.18,-0.3,0.75,-1.13,1.26
+2023,"2023-02-05","Ras Al Khaimah Championship","EURO",131,-1.11,-1.44,-0.34,-2.1,-0.12
+2023,"2023-02-05","AT&T Pebble Beach Pro-Am","PGA",155,-0.55,-1.07,0.03,-1.94,0.45
+2023,"2023-02-05","The Panama Championship","KFT",144,-1.34,-1.6,-0.82,-2.24,-0.53
+2023,"2023-01-29","Hero Dubai Desert Classic","EURO",132,-0.55,-1.04,-0.19,-1.3,0.3
+2023,"2023-01-28","Farmers Insurance Open","PGA",156,-0.26,-0.75,0.34,-1.3,0.72
+2023,"2023-01-25","The Bahamas Great Abaco Classic at The Abaco Club","KFT",132,-1.32,-1.55,-0.83,-2.05,-0.57
+2023,"2023-01-22","The American Express","PGA",156,-0.13,-0.54,0.33,-1.18,0.84
+2023,"2023-01-22","Abu Dhabi HSBC Championship","EURO",126,-0.61,-1.04,-0.22,-1.39,0.31
+2023,"2023-01-18","The Bahamas Great Exuma Classic at Sandals Emerald Bay","KFT",132,-1.34,-1.63,-0.97,-2.17,-0.61
+2023,"2023-01-15","Sony Open in Hawaii","PGA",144,-0.36,-0.68,0.23,-1.38,0.76
+2023,"2023-01-08","Sentry Tournament of Champions","PGA",39,0.93,0.53,1.44,0.01,1.92
+2023,"2022-12-18","AfrAsia Bank Mauritius Open","EURO",156,-2.12,-2.74,-1.38,-3.42,-0.78
+2023,"2022-12-11","Alfred Dunhill Championship","EURO",155,-1.67,-2.26,-0.83,-3.19,-0.3
+2023,"2022-12-04","ISPS Handa Australian Open","EURO",155,-2.54,-3.39,-1.8,-4.31,-0.77
+2023,"2022-12-04","Investec South African Open Championship","EURO",156,-1.77,-2.38,-0.94,-3.28,-0.43
+2023,"2022-12-04","Hero World Challenge","PGA",20,1.28,1.06,1.5,0.84,1.91
+2023,"2022-11-27","Fortinet Australian PGA Championship","EURO",156,-2.58,-3.44,-1.9,-4.29,-0.71
+2023,"2022-11-27","Joburg Open","EURO",156,-2.02,-2.61,-1.15,-3.34,-0.73
+2023,"2022-11-20","The RSM Classic","PGA",155,-0.28,-0.72,0.22,-1.16,0.55
+2023,"2022-11-13","Cadence Bank Houston Open","PGA",132,-0.15,-0.51,0.33,-1.13,0.72
+2023,"2022-11-06","World Wide Technology Championship at Mayakoba","PGA",132,-0.16,-0.44,0.41,-1.03,0.77
+2023,"2022-10-30","Butterfield Bermuda Championship","PGA",132,-0.83,-1.17,-0.16,-2.03,0.3
+2023,"2022-10-23","THE CJ CUP in South Carolina","PGA",78,0.53,0.15,1.02,-0.29,1.31
+2023,"2022-10-16","ZOZO CHAMPIONSHIP","PGA",78,0.22,-0.27,0.74,-0.76,1
+2023,"2022-10-09","Shriners Children's Open","PGA",144,-0.18,-0.45,0.35,-1.03,0.67
+2023,"2022-10-02","Sanderson Farms Championship","PGA",144,-0.26,-0.59,0.23,-1.14,0.48
+2023,"2022-09-18","Fortinet Championship","PGA",155,-0.22,-0.53,0.18,-0.93,0.46
+2024,"2024-12-08","Hero World Challenge","PGA",20,1.06,0.76,1.4,0.57,1.5
+2024,"2024-11-24","The RSM Classic","PGA",156,-0.54,-1,0.12,-1.72,0.54
+2024,"2024-11-17","DP World Tour Championship","EURO",50,0.21,-0.25,0.72,-0.44,1.04
+2024,"2024-11-17","Butterfield Bermuda Championship","PGA",120,-0.89,-1.36,-0.14,-2.23,0.34
+2024,"2024-11-10","Abu Dhabi HSBC Championship","EURO",70,0,-0.35,0.26,-0.61,0.84
+2024,"2024-11-10","World Wide Technology Championship","PGA",120,-0.61,-1.01,0.07,-1.67,0.47
+2024,"2024-10-27","Genesis Championship","EURO",120,-1.06,-1.55,-0.59,-1.99,-0.12
+2024,"2024-10-27","ZOZO CHAMPIONSHIP","PGA",78,0.1,-0.23,0.52,-0.94,0.78
+2024,"2024-10-20","Estrella Damm N.A. Andalucía  Masters","EURO",125,-0.72,-1.25,-0.2,-1.74,0.26
+2024,"2024-10-20","Shriners Children's Open","PGA",132,-0.28,-0.69,0.22,-1.19,0.48
+2024,"2024-10-13","FedEx Open de France","EURO",123,-0.77,-1.32,-0.17,-1.84,0.16
+2024,"2024-10-13","Black Desert Championship","PGA",131,-0.62,-1.05,0.06,-1.82,0.39
+2024,"2024-10-06","Alfred Dunhill Links Championship","EURO",168,-0.88,-1.56,-0.27,-2.1,0.4
+2024,"2024-10-06","Korn Ferry Tour Championship presented by United Leasing & Finance","KFT",74,-0.6,-0.85,-0.31,-1.09,-0.08
+2024,"2024-10-06","Sanderson Farms Championship","PGA",131,-0.52,-0.78,0.06,-1.54,0.46
+2024,"2024-09-29","acciona Open de España presented by Madrid","EURO",143,-1,-1.58,-0.4,-2.08,0.08
+2024,"2024-09-22","BMW PGA Championship","EURO",126,-0.43,-0.94,0.11,-1.47,0.69
+2024,"2024-09-22","Nationwide Children's Hospital Championship","KFT",117,-0.79,-1.07,-0.43,-1.42,-0.18
+2024,"2024-09-15","Simmons Bank Open for the Snedeker Foundation","KFT",133,-0.87,-1.2,-0.54,-1.58,-0.22
+2024,"2024-09-15","Amgen Irish Open","EURO",156,-0.79,-1.35,-0.23,-1.89,0.2
+2024,"2024-09-15","Chicago","LIV",54,-0.09,-0.61,0.54,-1.12,0.94
+2024,"2024-09-15","Procore Championship","PGA",144,-0.46,-0.98,0.06,-1.62,0.47
+2024,"2024-09-08","Omega European Masters","EURO",156,-1.07,-1.63,-0.39,-2.22,0.11
+2024,"2024-09-01","Betfred British Masters hosted by Sir Nick Faldo","EURO",156,-0.99,-1.48,-0.43,-1.99,-0.02
+2024,"2024-09-01","TOUR Championship","PGA",30,1.26,0.95,1.59,0.73,1.72
+2024,"2024-08-25","Danish Golf Championship","EURO",156,-1.29,-1.8,-0.75,-2.3,-0.23
+2024,"2024-08-25","Albertsons Boise Open presented Chevron","KFT",144,-0.93,-1.22,-0.49,-1.72,-0.24
+2024,"2024-08-25","BMW Championship","PGA",50,1.05,0.69,1.33,0.47,1.63
+2024,"2024-08-18","Magnit Championship","KFT",155,-1.05,-1.5,-0.61,-1.93,-0.28
+2024,"2024-08-18","D+D REAL Czech Masters","EURO",154,-1.33,-1.67,-0.68,-2.27,-0.29
+2024,"2024-08-18","FedEx St. Jude Championship","PGA",70,0.86,0.49,1.11,0.3,1.45
+2024,"2024-08-18","Greenbrier","LIV",54,-0.07,-0.64,0.5,-1.02,0.86
+2024,"2024-08-11","Pinnacle Bank Championship presented by Woodhouse","KFT",155,-1.12,-1.51,-0.62,-2.01,-0.33
+2024,"2024-08-11","Wyndham Championship","PGA",156,-0.18,-0.54,0.43,-1.23,0.76
+2024,"2024-08-04","Utah Championship presented by Zions Bank","KFT",155,-1.28,-1.74,-0.66,-2.55,-0.34
+2024,"2024-08-04","Olympic Men's Golf Competition","PGA",60,0.37,-0.33,1.02,-0.89,1.62
+2024,"2024-07-28","NV5 Invitational presented by Old National Bank","KFT",156,-1.17,-1.59,-0.61,-2.22,-0.26
+2024,"2024-07-28","United Kingdom","LIV",54,-0.08,-0.66,0.52,-1.01,0.92
+2024,"2024-07-28","3M Open","PGA",156,-0.42,-0.84,0.19,-1.38,0.56
+2024,"2024-07-21","The Open Championship","PGA",156,-0.02,-0.7,0.83,-1.69,1.32
+2024,"2024-07-21","Price Cutter Charity Championship presented by Dr Pepper","KFT",155,-1.21,-1.52,-0.65,-2.28,-0.28
+2024,"2024-07-21","Barracuda Championship","PGA",156,-0.79,-1.13,-0.23,-1.67,0.14
+2024,"2024-07-14","The Ascendant presented by Blue","KFT",154,-1.19,-1.55,-0.64,-2.22,-0.33
+2024,"2024-07-14","Andalucia","LIV",54,-0.08,-0.53,0.55,-0.97,0.86
+2024,"2024-07-14","ISCO Championship","PGA",156,-0.88,-1.4,-0.44,-1.82,-0.03
+2024,"2024-07-14","Genesis Scottish Open","PGA",156,-0.03,-0.58,0.53,-1.09,1.04
+2024,"2024-07-07","BMW International Open","EURO",155,-1.07,-1.51,-0.5,-2.08,-0.16
+2024,"2024-07-07","John Deere Classic","PGA",156,-0.43,-0.74,0.09,-1.48,0.48
+2024,"2024-06-30","Memorial Health Championship presented by LRS","KFT",156,-1.31,-1.68,-0.74,-2.4,-0.37
+2024,"2024-06-30","Italian Open presented by Regione Emilia-Romagna","EURO",156,-1.17,-1.56,-0.6,-2.43,-0.28
+2024,"2024-06-30","Rocket Mortgage Classic","PGA",156,-0.35,-0.58,0.2,-1.51,0.56
+2024,"2024-06-23","Compliance Solutions Championship","KFT",156,-1.14,-1.44,-0.59,-2.02,-0.24
+2024,"2024-06-23","KLM Open","EURO",155,-1.23,-1.61,-0.69,-2.58,-0.21
+2024,"2024-06-23","Nashville","LIV",54,-0.1,-0.66,0.51,-1.16,0.94
+2024,"2024-06-23","Travelers Championship","PGA",70,0.72,0.29,1.04,-0.06,1.44
+2024,"2024-06-16","Blue Cross and Blue Shield of Kansas Wichita Open","KFT",154,-1.29,-1.54,-0.68,-2.24,-0.42
+2024,"2024-06-16","U.S. Open","PGA",156,-0.09,-0.81,0.74,-1.74,1.22
+2024,"2024-06-09","Volvo Car Scandinavian Mixed","EURO",78,-0.83,-1.06,-0.46,-1.66,-0.05
+2024,"2024-06-09","the Memorial Tournament presented by Workday","PGA",73,0.76,0.36,1.04,-0.01,1.29
+2024,"2024-06-09","Houston","LIV",54,-0.1,-0.73,0.53,-1.1,1
+2024,"2024-06-09","BMW Charity Pro-Am Presented by TD SYNNEX","KFT",160,-1.24,-1.65,-0.68,-2.29,-0.42
+2024,"2024-06-02","European Open","EURO",155,-1.08,-1.4,-0.6,-2,-0.1
+2024,"2024-06-02","RBC Canadian Open","PGA",156,-0.48,-0.74,0.15,-1.77,0.6
+2024,"2024-06-02","UNC Health Championship presented by STITCH","KFT",156,-1.34,-1.68,-0.82,-2.58,-0.41
+2024,"2024-05-26","Visit Knoxville Open","KFT",156,-1.19,-1.43,-0.72,-2.11,-0.39
+2024,"2024-05-26","Soudal Open","EURO",155,-1.23,-1.5,-0.56,-2.36,-0.24
+2024,"2024-05-26","Charles Schwab Challenge","PGA",132,-0.01,-0.43,0.52,-0.88,0.9
+2024,"2024-05-19","AdventHealth Championship","KFT",156,-1.21,-1.45,-0.69,-2.2,-0.44
+2024,"2024-05-19","PGA Championship","PGA",156,-0.19,-0.42,0.82,-2.88,1.2
+2024,"2024-05-12","Wells Fargo Championship","PGA",68,0.75,0.4,1.07,0.01,1.28
+2024,"2024-05-12","Myrtle Beach Classic","PGA",132,-0.71,-1.08,-0.09,-1.61,0.15
+2024,"2024-05-05","THE CJ CUP Byron Nelson","PGA",156,-0.35,-0.66,0.05,-1.16,0.47
+2024,"2024-05-05","Volvo China Open","EURO",156,-2.07,-3.66,-0.63,-4.65,-0.32
+2024,"2024-05-05","Singapore","LIV",54,-0.1,-0.64,0.41,-1.1,0.9
+2024,"2024-04-28","Veritex Bank Championship","KFT",156,-1.31,-1.62,-0.73,-2.55,-0.42
+2024,"2024-04-28","ISPS HANDA - CHAMPIONSHIP","EURO",155,-1.06,-1.5,-0.53,-1.95,-0.17
+2024,"2024-04-28","Adelaide","LIV",54,-0.1,-0.63,0.47,-1.14,0.94
+2024,"2024-04-21","RBC Heritage","PGA",69,0.65,0.24,1.01,-0.12,1.33
+2024,"2024-04-21","LECOM Suncoast Classic","KFT",156,-1.34,-1.69,-0.75,-2.67,-0.41
+2024,"2024-04-21","Corales Puntacana Championship","PGA",132,-0.87,-1.31,-0.07,-2.3,0.18
+2024,"2024-04-14","Masters Tournament","PGA",89,0.44,0.16,1.1,-1.1,1.38
+2024,"2024-04-07","Club Car Championship at The Landings Golf & Athletic Club","KFT",156,-1.17,-1.48,-0.7,-2.08,-0.42
+2024,"2024-04-07","Miami","LIV",54,-0.08,-0.53,0.5,-1.21,0.86
+2024,"2024-04-07","Valero Texas Open","PGA",156,-0.18,-0.53,0.4,-1.06,0.75
+2024,"2024-03-31","Texas Children's Houston Open","PGA",144,-0.29,-0.6,0.19,-1.31,0.55
+2024,"2024-03-31","Hero Indian Open","EURO",144,-1.5,-2.05,-0.68,-2.88,-0.31
+2024,"2024-03-24","Porsche Singapore Classic","EURO",132,-1.04,-1.4,-0.51,-2.15,-0.08
+2024,"2024-03-24","Valspar Championship","PGA",152,-0.19,-0.58,0.21,-0.92,0.71
+2024,"2024-03-17","THE PLAYERS Championship","PGA",143,0.31,-0.14,0.79,-0.41,1.1
+2024,"2024-03-10","Astara Chile Classic presented by Scotiabank","KFT",156,-1.48,-1.89,-0.78,-2.81,-0.46
+2024,"2024-03-10","Jonsson Workwear Open","EURO",156,-1.66,-2.27,-0.84,-3.35,-0.39
+2024,"2024-03-10","Hong Kong","LIV",54,-0.05,-0.53,0.47,-0.89,0.93
+2024,"2024-03-10","Puerto Rico Open","PGA",132,-1,-1.63,-0.25,-2.51,0.08
+2024,"2024-03-10","Arnold Palmer Invitational presented by Mastercard","PGA",69,0.75,0.47,1.06,0.03,1.36
+2024,"2024-03-03","Cognizant Classic in The Palm Beaches","PGA",144,-0.12,-0.45,0.41,-0.77,0.77
+2024,"2024-03-03","117 Visa Argentina Open presented by Macro","KFT",156,-1.44,-1.86,-0.77,-2.73,-0.49
+2024,"2024-03-03","SDC Championship","EURO",156,-1.66,-2.2,-0.89,-3,-0.42
+2024,"2024-03-03","Jeddah","LIV",54,-0.02,-0.5,0.47,-1.02,0.88
+2024,"2024-02-25","Magical Kenya Open","EURO",142,-1.82,-2.01,-0.9,-4.4,-0.48
+2024,"2024-02-25","Mexico Open at Vidanta","PGA",132,-0.48,-0.73,0.09,-1.36,0.44
+2024,"2024-02-18","The Genesis Invitational","PGA",70,0.71,0.28,1.09,0.02,1.44
+2024,"2024-02-11","Astara Golf Championship presented by Mastercard","KFT",156,-1.22,-1.55,-0.66,-2.18,-0.45
+2024,"2024-02-11","Commercial Bank Qatar Masters","EURO",138,-1.23,-1.55,-0.49,-2.38,-0.14
+2024,"2024-02-11","WM Phoenix Open","PGA",132,0.1,-0.36,0.62,-0.65,1.05
+2024,"2024-02-10","Las Vegas","LIV",54,-0.01,-0.48,0.42,-1.05,0.85
+2024,"2024-02-04","Bahrain Championship presented by Bapco Energies","EURO",132,-1.14,-1.36,-0.49,-2,-0.16
+2024,"2024-02-04","Mayakoba","LIV",54,-0.03,-0.51,0.38,-0.96,0.8
+2024,"2024-02-04","AT&T Pebble Beach Pro-Am","PGA",80,0.68,0.33,1.03,0.03,1.4
+2024,"2024-02-04","The Panama Championship","KFT",144,-1.15,-1.5,-0.7,-2.02,-0.41
+2024,"2024-01-28","Ras Al Khaimah Championship","EURO",132,-1,-1.36,-0.36,-1.97,-0.03
+2024,"2024-01-27","Farmers Insurance Open","PGA",156,-0.09,-0.45,0.42,-0.98,0.8
+2024,"2024-01-24","The Bahamas Great Abaco Classic at The Abaco Club","KFT",131,-1.17,-1.37,-0.64,-1.96,-0.49
+2024,"2024-01-21","The American Express","PGA",156,-0.08,-0.5,0.39,-1.14,0.75
+2024,"2024-01-21","Hero Dubai Desert Classic","EURO",126,-0.6,-1.13,-0.11,-1.54,0.58
+2024,"2024-01-17","The Bahamas Great Exuma Classic at Sandals Emerald Bay","KFT",131,-1.21,-1.47,-0.76,-2.1,-0.52
+2024,"2024-01-14","Dubai Invitational","EURO",60,-0.52,-0.85,-0.05,-1.4,0.33
+2024,"2024-01-14","Sony Open in Hawaii","PGA",144,-0.07,-0.46,0.41,-0.78,0.81
+2024,"2024-01-07","The Sentry","PGA",59,0.81,0.4,1.2,0.19,1.6
+2024,"2023-12-17","AfrAsia Bank Mauritius Open","EURO",156,-1.83,-2.4,-1.07,-3.2,-0.69
+2024,"2023-12-10","Alfred Dunhill Championship","EURO",156,-1.74,-2.36,-0.81,-3.3,-0.31
+2024,"2023-12-03","ISPS Handa Australian Open","EURO",156,-2.01,-2.84,-1.15,-3.55,-0.21
+2024,"2023-12-03","Investec South African Open Championship","EURO",155,-1.79,-2.38,-0.9,-3.41,-0.45
+2024,"2023-11-26","Fortinet Australian PGA Championship","EURO",155,-2.14,-2.91,-1.5,-3.75,-0.25
+2024,"2023-11-26","Joburg Open","EURO",156,-1.81,-2.43,-0.88,-3.41,-0.54
+2025,"2025-12-07","Hero World Challenge","PGA",20,1.06,0.71,1.22,0.6,1.48
+2025,"2025-11-23","The RSM Classic","PGA",156,-0.44,-0.89,0.18,-1.51,0.51
+2025,"2025-11-16","DP World Tour Championship","EURO",52,0.24,-0.28,0.66,-0.55,1.21
+2025,"2025-11-16","Butterfield Bermuda Championship","PGA",120,-0.66,-1.06,0.07,-1.93,0.49
+2025,"2025-11-09","Abu Dhabi HSBC Championship","EURO",72,0,-0.48,0.43,-0.71,0.98
+2025,"2025-11-09","World Wide Technology Championship","PGA",120,-0.42,-0.76,0.18,-1.5,0.49
+2025,"2025-10-26","Genesis Championship","EURO",125,-0.91,-1.44,-0.41,-1.9,0
+2025,"2025-10-26","Bank of Utah Championship","PGA",131,-0.43,-1,0.18,-1.55,0.5
+2025,"2025-10-19","DP World India Championship","EURO",137,-1.19,-1.69,-0.48,-2.91,0.02
+2025,"2025-10-12","Open de España presented by Madrid","EURO",132,-0.81,-1.1,-0.32,-1.68,0.3
+2025,"2025-10-12","Korn Ferry Tour Championship presented by United Leasing & Finance","KFT",73,-0.53,-0.8,-0.27,-1.02,-0.09
+2025,"2025-10-12","Baycurrent Classic","PGA",78,0.05,-0.19,0.48,-0.78,0.82
+2025,"2025-10-05","Compliance Solutions Championship","KFT",112,-0.75,-1.05,-0.41,-1.24,-0.12
+2025,"2025-10-05","Alfred Dunhill Links Championship","EURO",168,-0.92,-1.44,-0.34,-2.13,0.25
+2025,"2025-10-05","Sanderson Farms Championship","PGA",132,-0.35,-0.75,0.22,-1.55,0.47
+2025,"2025-09-21","FedEx Open de France","EURO",156,-1.01,-1.52,-0.38,-2.11,0.02
+2025,"2025-09-21","Nationwide Children's Hospital Championship","KFT",137,-0.87,-1.21,-0.5,-1.48,-0.21
+2025,"2025-09-14","Simmons Bank Open for the Snedeker Foundation","KFT",136,-0.94,-1.25,-0.59,-1.65,-0.25
+2025,"2025-09-14","BMW PGA Championship","EURO",138,-0.26,-0.88,0.3,-1.29,0.91
+2025,"2025-09-14","Procore Championship","PGA",144,-0.34,-0.94,0.19,-1.56,0.69
+2025,"2025-09-07","Amgen Irish Open","EURO",156,-0.79,-1.21,-0.22,-1.76,0.29
+2025,"2025-08-31","Omega European Masters","EURO",156,-1.13,-1.79,-0.45,-2.35,0.11
+2025,"2025-08-24","Betfred British Masters hosted by Sir Nick Faldo","EURO",156,-0.95,-1.4,-0.43,-1.97,0.05
+2025,"2025-08-24","TOUR Championship","PGA",30,1.32,1.04,1.47,0.77,1.7
+2025,"2025-08-17","Danish Golf Championship","EURO",156,-1.38,-2,-0.81,-2.33,-0.3
+2025,"2025-08-17","Albertsons Boise Open presented Chevron","KFT",155,-1.01,-1.35,-0.61,-1.75,-0.23
+2025,"2025-08-17","BMW Championship","PGA",49,1.04,0.71,1.28,0.5,1.54
+2025,"2025-08-17","Indianapolis","LIV",54,-0.17,-0.76,0.35,-1.19,0.73
+2025,"2025-08-10","Pinnacle Bank Championship presented by Woodhouse","KFT",156,-1.09,-1.38,-0.55,-1.99,-0.22
+2025,"2025-08-10","Nexo Championship","EURO",155,-1.34,-1.87,-0.77,-2.27,-0.32
+2025,"2025-08-10","FedEx St. Jude Championship","PGA",69,0.81,0.53,1.17,0.13,1.41
+2025,"2025-08-10","Chicago","LIV",54,-0.19,-0.76,0.29,-1.3,0.7
+2025,"2025-08-03","Wyndham Championship","PGA",156,-0.09,-0.32,0.5,-1.15,0.8
+2025,"2025-08-03","Utah Championship presented by Zions Bank and Intermountain Health","KFT",156,-1.29,-1.68,-0.75,-2.24,-0.42
+2025,"2025-07-27","NV5 Invitational","KFT",156,-1.14,-1.43,-0.69,-2.05,-0.35
+2025,"2025-07-27","United Kingdom","LIV",54,-0.18,-0.73,0.35,-1.3,0.66
+2025,"2025-07-27","3M Open","PGA",156,-0.25,-0.55,0.31,-1.29,0.64
+2025,"2025-07-20","The Open Championship","PGA",156,0.02,-0.6,0.86,-1.64,1.34
+2025,"2025-07-20","Price Cutter Charity Championship presented by Hiland Dairy Foods","KFT",156,-1.22,-1.58,-0.69,-2.06,-0.36
+2025,"2025-07-20","Barracuda Championship","PGA",156,-0.8,-1.21,-0.23,-1.84,0.09
+2025,"2025-07-13","The Ascendant presented by Blue","KFT",156,-1.21,-1.65,-0.7,-2.19,-0.37
+2025,"2025-07-13","Andalucia","LIV",54,-0.19,-0.76,0.35,-1.37,0.79
+2025,"2025-07-13","ISCO Championship","PGA",156,-0.99,-1.42,-0.34,-2.2,0.01
+2025,"2025-07-13","Genesis Scottish Open","PGA",155,0.06,-0.49,0.56,-0.94,1.04
+2025,"2025-07-06","BMW International Open","EURO",156,-0.95,-1.47,-0.43,-1.81,-0.05
+2025,"2025-07-06","John Deere Classic","PGA",156,-0.33,-0.76,0.33,-1.23,0.57
+2025,"2025-06-29","Memorial Health Championship presented by LRS","KFT",155,-1.16,-1.47,-0.67,-2.06,-0.43
+2025,"2025-06-29","Italian Open","EURO",156,-1.22,-1.71,-0.64,-2.34,-0.27
+2025,"2025-06-29","Dallas","LIV",53,-0.19,-0.83,0.29,-1.3,0.91
+2025,"2025-06-29","Rocket Classic","PGA",156,-0.29,-0.67,0.35,-1.37,0.69
+2025,"2025-06-22","Blue Cross and Blue Shield of Kansas Wichita Open","KFT",155,-1.15,-1.41,-0.64,-2.08,-0.36
+2025,"2025-06-22","Travelers Championship","PGA",71,0.81,0.48,1.12,0.01,1.48
+2025,"2025-06-15","U.S. Open","PGA",156,-0.08,-0.69,0.81,-1.98,1.27
+2025,"2025-06-08","KLM Open","EURO",156,-1.14,-1.55,-0.52,-2.13,-0.2
+2025,"2025-06-08","RBC Canadian Open","PGA",155,-0.45,-0.88,0.32,-2.05,0.69
+2025,"2025-06-08","BMW Charity Pro-Am Presented by TD SYNNEX","KFT",160,-1.18,-1.61,-0.65,-2.04,-0.28
+2025,"2025-06-08","Virginia","LIV",53,-0.18,-0.8,0.32,-1.27,0.93
+2025,"2025-06-01","Austrian Alpine Open presented by SalzburgerLand","EURO",154,-1.24,-1.66,-0.5,-2.27,-0.18
+2025,"2025-06-01","the Memorial Tournament presented by Workday","PGA",72,0.74,0.39,1.08,0.16,1.29
+2025,"2025-06-01","UNC Health Championship presented by STITCH","KFT",156,-1.08,-1.33,-0.6,-1.97,-0.32
+2025,"2025-05-25","Visit Knoxville Open","KFT",156,-1.17,-1.48,-0.67,-2.14,-0.36
+2025,"2025-05-25","Soudal Open","EURO",156,-1.16,-1.57,-0.47,-2.12,-0.09
+2025,"2025-05-25","Charles Schwab Challenge","PGA",134,0.01,-0.37,0.56,-0.78,0.92
+2025,"2025-05-18","AdventHealth Championship","KFT",155,-1.21,-1.51,-0.71,-2.14,-0.34
+2025,"2025-05-18","PGA Championship","PGA",156,-0.04,-0.06,0.82,-2.69,1.33
+2025,"2025-05-11","Turkish Airlines Open","EURO",156,-1.44,-1.78,-0.56,-2.54,-0.27
+2025,"2025-05-11","Truist Championship","PGA",72,0.72,0.37,1.01,0.15,1.26
+2025,"2025-05-11","ONEflight Myrtle Beach Classic","PGA",132,-0.6,-1.06,0.13,-1.66,0.39
+2025,"2025-05-04","Tulum Championship at PGA Riviera Maya","KFT",154,-1.25,-1.68,-0.74,-2.16,-0.42
+2025,"2025-05-04","THE CJ CUP Byron Nelson","PGA",156,-0.31,-0.75,0.28,-1.31,0.5
+2025,"2025-05-04","Korea","LIV",54,-0.1,-0.8,0.5,-1.11,0.85
+2025,"2025-04-27","Veritex Bank Championship","KFT",155,-1.29,-1.64,-0.73,-2.34,-0.36
+2025,"2025-04-27","Hainan Classic","EURO",155,-1.58,-2.14,-0.55,-3.73,-0.31
+2025,"2025-04-27","Mexico City","LIV",54,-0.05,-0.71,0.61,-0.99,1.05
+2025,"2025-04-20","RBC Heritage","PGA",72,0.76,0.36,1.13,0.11,1.41
+2025,"2025-04-20","Volvo China Open","EURO",156,-1.78,-3.14,-0.56,-4.12,-0.19
+2025,"2025-04-20","Corales Puntacana Championship","PGA",132,-1,-1.57,-0.06,-2.76,0.24
+2025,"2025-04-19","LECOM Suncoast Classic","KFT",156,-1.21,-1.58,-0.72,-2.03,-0.4
+2025,"2025-04-13","Masters Tournament","PGA",95,0.4,0.05,1.08,-1.03,1.43
+2025,"2025-04-06","Club Car Championship at The Landings Golf & Athletic Club","KFT",156,-1.17,-1.54,-0.65,-2.11,-0.26
+2025,"2025-04-06","Valero Texas Open","PGA",144,-0.2,-0.59,0.37,-1.25,0.75
+2025,"2025-04-06","Miami","LIV",54,-0.08,-0.7,0.59,-1.06,0.81
+2025,"2025-03-30","Texas Children's Houston Open","PGA",153,-0.13,-0.56,0.41,-1.03,0.79
+2025,"2025-03-30","Hero Indian Open","EURO",138,-1.39,-1.88,-0.57,-2.87,-0.2
+2025,"2025-03-23","Porsche Singapore Classic","EURO",132,-0.9,-1.34,-0.36,-1.69,-0.08
+2025,"2025-03-23","Valspar Championship","PGA",152,-0.06,-0.49,0.48,-1.02,0.8
+2025,"2025-03-16","THE PLAYERS Championship","PGA",144,0.38,-0.02,0.74,-0.35,1.19
+2025,"2025-03-16","Singapore","LIV",54,-0.09,-0.58,0.43,-0.96,0.76
+2025,"2025-03-09","Astara Chile Classic presented by Scotiabank","KFT",154,-1.33,-1.67,-0.8,-2.18,-0.53
+2025,"2025-03-09","Joburg Open","EURO",156,-1.66,-2.4,-0.66,-3.74,-0.24
+2025,"2025-03-09","Hong Kong","LIV",54,-0.11,-0.56,0.39,-1.07,0.77
+2025,"2025-03-09","Puerto Rico Open","PGA",132,-1,-1.61,-0.18,-2.37,0.13
+2025,"2025-03-09","Arnold Palmer Invitational presented by Mastercard","PGA",72,0.77,0.54,1.07,0.02,1.42
+2025,"2025-03-02","Cognizant Classic in The Palm Beaches","PGA",144,-0.09,-0.43,0.34,-0.92,0.7
+2025,"2025-03-02","118 Visa Argentina Open presented by Macro","KFT",156,-1.27,-1.58,-0.85,-2.1,-0.46
+2025,"2025-03-02","Investec South African Open Championship","EURO",156,-1.63,-2.3,-0.68,-3.39,-0.18
+2025,"2025-02-23","Magical Kenya Open","EURO",150,-1.86,-1.7,-0.72,-5.43,-0.32
+2025,"2025-02-23","Mexico Open at VidantaWorld","PGA",132,-0.46,-0.88,0.14,-1.42,0.57
+2025,"2025-02-16","Adelaide","LIV",54,-0.12,-0.63,0.42,-1.02,0.69
+2025,"2025-02-16","The Genesis Invitational","PGA",72,0.74,0.5,1.07,0.21,1.3
+2025,"2025-02-09","Astara Golf Championship presented by Mastercard","KFT",154,-1.22,-1.53,-0.76,-1.94,-0.32
+2025,"2025-02-09","Commercial Bank Qatar Masters","EURO",140,-1.06,-1.26,-0.43,-1.87,-0.19
+2025,"2025-02-09","WM Phoenix Open","PGA",132,0.15,-0.24,0.58,-0.75,0.89
+2025,"2025-02-08","Riyadh","LIV",54,-0.12,-0.64,0.39,-1.02,0.68
+2025,"2025-02-02","Bapco Energies Bahrain Championship","EURO",131,-0.9,-1.19,-0.36,-1.52,0.06
+2025,"2025-02-02","AT&T Pebble Beach Pro-Am","PGA",80,0.71,0.38,0.93,0.16,1.36
+2025,"2025-02-02","The Panama Championship","KFT",143,-1.18,-1.48,-0.72,-2,-0.34
+2025,"2025-01-26","Ras Al Khaimah Championship","EURO",137,-0.84,-1.18,-0.27,-1.58,0.2
+2025,"2025-01-25","Farmers Insurance Open","PGA",154,-0.22,-0.62,0.35,-1.29,0.74
+2025,"2025-01-22","The Bahamas Great Abaco Classic","KFT",142,-1.19,-1.47,-0.79,-1.96,-0.48
+2025,"2025-01-19","The American Express","PGA",156,-0.12,-0.54,0.36,-1.16,0.75
+2025,"2025-01-19","Hero Dubai Desert Classic","EURO",125,-0.43,-0.95,0.05,-1.28,0.56
+2025,"2025-01-15","The Bahamas Golf Classic at Atlantis Paradise Island","KFT",144,-1.2,-1.44,-0.77,-1.99,-0.43
+2025,"2025-01-12","Sony Open in Hawaii","PGA",143,-0.11,-0.5,0.4,-1.02,0.89
+2025,"2025-01-05","The Sentry","PGA",59,0.62,0.28,1.02,-0.27,1.37
+2025,"2024-12-22","AfrAsia Bank Mauritius Open","EURO",156,-1.71,-2.22,-0.97,-3.22,-0.52
+2025,"2024-12-15","Alfred Dunhill Championship","EURO",155,-1.52,-2.19,-0.58,-3.28,-0.02
+2025,"2024-12-08","Nedbank Golf Challenge","EURO",66,-0.31,-0.69,0.15,-1.23,0.47
+2025,"2024-12-01","ISPS Handa Australian Open","EURO",156,-1.95,-2.84,-1.04,-3.69,-0.38
+2025,"2024-11-24","BMW Australian PGA Championship","EURO",156,-2,-2.92,-1.16,-3.72,-0.41
+2026,"2026-04-05","Valero Texas Open","PGA",132,-0.08,-0.38,0.39,-1.03,0.74
+2026,"2026-04-05","LECOM Suncoast Classic","KFT",155,-1.12,-1.39,-0.53,-2.12,-0.25
+2026,"2026-03-29","Texas Children's Houston Open","PGA",135,0.02,-0.38,0.46,-0.93,0.83
+2026,"2026-03-29","Club Car Championship at The Landings Golf & Athletic Club","KFT",156,-1.06,-1.3,-0.51,-1.97,-0.31
+2026,"2026-03-29","Hero Indian Open","EURO",138,-1.41,-1.98,-0.55,-3.01,-0.2
+2026,"2026-03-22","Hainan Classic presented by MAEXTRO","EURO",120,-1.52,-2.14,-0.66,-3.08,-0.31
+2026,"2026-03-22","Valspar Championship","PGA",135,-0.05,-0.54,0.42,-0.98,0.83
+2026,"2026-03-22","South Africa","LIV",57,-0.19,-0.58,0.29,-1.08,0.6
+2026,"2026-03-15","THE PLAYERS Championship","PGA",122,0.5,0.06,1.03,-0.24,1.39
+2026,"2026-03-15","Singapore","LIV",57,-0.21,-0.74,0.24,-1.11,0.53
+2026,"2026-03-08","Arnold Palmer Invitational presented by Mastercard","PGA",72,0.77,0.45,1.18,0.03,1.38
+2026,"2026-03-08","Puerto Rico Open","PGA",120,-0.82,-1.27,-0.09,-2.06,0.3
+2026,"2026-03-08","Hong Kong","LIV",57,-0.24,-0.79,0.28,-1.12,0.55
+2026,"2026-03-08","Astara Chile Classic presented by Scotiabank","KFT",156,-1.33,-1.69,-0.72,-2.44,-0.45
+2026,"2026-03-08","Joburg Open","EURO",156,-1.63,-2.24,-0.78,-3.21,-0.22
+2026,"2026-03-01","Cognizant Classic in The Palm Beaches","PGA",123,-0.2,-0.54,0.27,-1.15,0.59
+2026,"2026-03-01","Investec South African Open Championship","EURO",155,-1.52,-2.14,-0.56,-3.17,-0.09
+2026,"2026-03-01","119 Visa Argentina Open presented by Macro","KFT",156,-1.19,-1.51,-0.67,-2.11,-0.38
+2026,"2026-02-22","Magical Kenya Open presented by absa","EURO",144,-1.75,-1.68,-0.73,-5.05,-0.27
+2026,"2026-02-22","The Genesis Invitational","PGA",72,0.81,0.41,1.2,0.17,1.48
+2026,"2026-02-15","AT&T Pebble Beach Pro-Am","PGA",80,0.71,0.37,1.1,-0.08,1.42
+2026,"2026-02-15","Adelaide","LIV",57,-0.27,-0.74,0.2,-1.3,0.49
+2026,"2026-02-08","Astara Golf Championship presented by Mastercard","KFT",144,-1.15,-1.48,-0.6,-1.98,-0.32
+2026,"2026-02-08","WM Phoenix Open","PGA",123,0.19,-0.23,0.67,-0.72,1.11
+2026,"2026-02-08","Qatar Masters","EURO",144,-1.16,-1.46,-0.44,-2.21,-0.1
+2026,"2026-02-07","Riyadh","LIV",57,-0.3,-0.91,0.22,-1.39,0.42
+2026,"2026-02-01","Bapco Energies Bahrain Championship","EURO",138,-1.07,-1.38,-0.43,-2.02,-0.09
+2026,"2026-02-01","Farmers Insurance Open","PGA",147,0.03,-0.34,0.54,-0.9,0.89
+2026,"2026-02-01","The Panama Championship","KFT",144,-1.13,-1.5,-0.61,-1.81,-0.32
+2026,"2026-01-25","Hero Dubai Desert Classic","EURO",126,-0.63,-1.07,-0.2,-1.51,0.37
+2026,"2026-01-25","The American Express","PGA",156,0.04,-0.4,0.55,-0.81,0.84
+2026,"2026-01-21","The Bahamas Great Abaco Classic","KFT",132,-1.07,-1.4,-0.63,-1.77,-0.39
+2026,"2026-01-18","Sony Open in Hawaii","PGA",120,-0.01,-0.46,0.51,-0.77,0.85
+2026,"2026-01-18","Dubai Invitational","EURO",59,-0.46,-1,0.08,-1.36,0.61
+2026,"2026-01-14","The Bahamas Golf Classic at Atlantis Paradise Island","KFT",131,-1.1,-1.33,-0.64,-1.73,-0.44
+2026,"2025-12-21","AfrAsia Bank Mauritius Open","EURO",155,-1.7,-2.43,-0.94,-3.2,-0.34
+2026,"2025-12-14","Alfred Dunhill Championship","EURO",156,-1.69,-2.44,-0.67,-3.68,-0.21
+2026,"2025-12-07","Crown Australian Open","EURO",156,-1.64,-2.41,-0.84,-3.22,-0.02
+2026,"2025-12-07","Nedbank Golf Challenge in honour of Gary Player","EURO",66,-0.41,-0.74,0.05,-1.45,0.56
+2026,"2025-11-30","BMW Australian PGA Championship","EURO",156,-1.79,-2.45,-0.99,-3.32,-0.23
+2026,"2026-04-12","Masters Tournament","PGA",91,0.4,0.29,1.21,-1.46,1.61
