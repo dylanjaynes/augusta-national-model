@@ -11,8 +11,10 @@ PROCESSED = Path(__file__).parent.parent / "data" / "processed"
 def load_predictions():
     p = PROCESSED / "predictions_2026.parquet"
     if not p.exists():
+        p = PROCESSED / "predictions_2026.csv"
+    if not p.exists():
         return None
-    return pd.read_parquet(p)
+    return pd.read_parquet(PROCESSED / "predictions_2026.parquet") if (PROCESSED / "predictions_2026.parquet").exists() else pd.read_csv(p)
 
 @st.cache_data(ttl=1800)
 def load_edge():
@@ -25,7 +27,7 @@ preds = load_predictions()
 edge = load_edge()
 
 if preds is None:
-    st.error("Predictions not found. Run: `python run_2026_predictions.py`")
+    st.error("Predictions not found. Run: `python run_production.py`")
     st.stop()
 
 st.sidebar.title("⛳ Augusta Model")
@@ -41,37 +43,50 @@ st.sidebar.page_link("pages/4_Backtest.py", label="Backtest")
 
 st.title("⛳ 2026 Masters — Augusta National Model")
 st.markdown("Two-stage XGBoost + Monte Carlo model with Augusta-specific experience features. "
-            "Backtested 2021-2025: **42% top-10 precision**, **+55% ROI** on top-10 market.")
+            "Backtested 2021-2025: **34% top-10 precision**, Cal AUC **0.626**.")
 
 col1, col2, col3, col4 = st.columns(4)
 col1.metric("Field Size", len(preds))
-debutants = (preds["augusta_experience_tier"]==0).sum()
+debutants = (preds.get("augusta_experience_tier", pd.Series(dtype=float)) == 0).sum()
 col2.metric("Debutants", debutants)
 top1 = preds.iloc[0]
-t10_col_header = "top10_prob" if "top10_prob" in preds.columns else "top10_prob_calibrated"
-col3.metric("Model #1 (Top-10)", top1["player_name"], f"{top1[t10_col_header]:.1%}")
-if edge is not None and len(edge)>0:
-    fav = edge.sort_values("market_win_pct", ascending=False).iloc[0]
-    col4.metric("Odds Favourite", fav["player_name"], f"{fav['market_win_pct']:.1%} mkt")
+t10_col = "top10_prob" if "top10_prob" in preds.columns else "top10_prob_calibrated"
+col3.metric("Model #1 (Top-10)", top1["player_name"], f"{top1[t10_col]:.1%}")
+
+# Odds favourite — handle different edge CSV column names
+if edge is not None and len(edge) > 0:
+    mkt_col = next((c for c in ["market_win_pct", "dk_fair_win_pct", "dk_implied_prob"] if c in edge.columns), None)
+    if mkt_col:
+        fav = edge.sort_values(mkt_col, ascending=False).iloc[0]
+        col4.metric("Odds Favourite", fav["player_name"], f"{fav[mkt_col]:.1%} mkt")
 
 st.markdown("---")
 st.subheader("Quick Look — Top 10")
-t10_col = "top10_prob" if "top10_prob" in preds.columns else "top10_prob_calibrated"
-base_cols = ["player_name","win_prob",t10_col,"top20_prob",
-             "augusta_experience_tier","augusta_made_cut_prev_year","augusta_scoring_trajectory"]
+base_cols = ["player_name", "win_prob", t10_col, "top20_prob"]
 if "make_cut_prob" in preds.columns:
-    base_cols.insert(4, "make_cut_prob")
-top10 = preds.head(10)[base_cols].copy()
-col_names = ["Player","Win %","Top-10 %","Top-20 %"]
-if "make_cut_prob" in preds.columns:
+    base_cols.append("make_cut_prob")
+for c in ["augusta_experience_tier", "augusta_made_cut_prev_year", "augusta_scoring_trajectory"]:
+    if c in preds.columns:
+        base_cols.append(c)
+top10 = preds.head(10)[[c for c in base_cols if c in preds.columns]].copy()
+
+col_names = ["Player", "Win %", "Top-10 %", "Top-20 %"]
+if "make_cut_prob" in top10.columns:
     col_names.append("Cut %")
-col_names += ["Exp Tier","Cut Prev Yr","Trajectory"]
+if "augusta_experience_tier" in top10.columns:
+    col_names.append("Exp Tier")
+if "augusta_made_cut_prev_year" in top10.columns:
+    col_names.append("Cut Prev Yr")
+if "augusta_scoring_trajectory" in top10.columns:
+    col_names.append("Trajectory")
 top10.columns = col_names
+
 top10["Win %"] = top10["Win %"].map("{:.1%}".format)
 top10["Top-10 %"] = top10["Top-10 %"].map("{:.1%}".format)
 top10["Top-20 %"] = top10["Top-20 %"].map("{:.1%}".format)
 if "Cut %" in top10.columns:
     top10["Cut %"] = top10["Cut %"].map("{:.1%}".format)
-top10["Trajectory"] = top10["Trajectory"].map("{:+.2f}".format)
-top10.index = range(1, len(top10)+1)
+if "Trajectory" in top10.columns:
+    top10["Trajectory"] = top10["Trajectory"].map("{:+.2f}".format)
+top10.index = range(1, len(top10) + 1)
 st.dataframe(top10, use_container_width=True)
