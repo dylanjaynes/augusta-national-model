@@ -174,9 +174,9 @@ edge_cols_display = [c for c in ["Win Edge", "T10 Edge"] if c in display.columns
 for col in edge_cols_display:
     display[col] = display[col].apply(format_edge)
 
-styled = display.style.applymap(style_edge, subset=edge_cols_display)
+styled = display.style.map(style_edge, subset=edge_cols_display)
 
-st.dataframe(styled, use_container_width=True, height=600, hide_index=True)
+st.dataframe(styled, width="stretch", height=600, hide_index=True)
 
 if len(table) == 0:
     st.info(f"No players with Win Edge ≥ {min_edge:.1f}. Lower the threshold.")
