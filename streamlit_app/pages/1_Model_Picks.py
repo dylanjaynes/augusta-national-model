@@ -80,7 +80,14 @@ c2.metric("Top Pick", top1["player_name"])
 c3.metric("Model Win%", fmt_pct(top1["win_prob"]))
 c4.metric("Book Win%", fmt_pct(top1.get("market_win")))
 if source:
-    st.caption(f"Market: **{source}** — EV = (Model − Book) / Book")
+    if "pre-tournament" in source or "DG pre-tournament" in source:
+        st.warning(
+            f"⚠ Win odds are from a **stale DG snapshot** ({source}), not live sportsbook lines. "
+            "Add `ODDS_API_KEY` to Streamlit secrets to get live win odds.",
+            icon="⚠"
+        )
+    else:
+        st.caption(f"Market: **{source}** — EV = (Model − Book) / Book")
 st.markdown("---")
 
 # ── Market tabs ───────────────────────────────────────────────────────────────
