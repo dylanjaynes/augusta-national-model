@@ -1,227 +1,221 @@
-"""Best Bets — Betting value comparison across Win / Top-10 / Top-20 markets."""
 import streamlit as st
 import pandas as pd
-import numpy as np
 from pathlib import Path
 
 st.set_page_config(page_title="Best Bets — Augusta Model", layout="wide", page_icon="⛳")
 
 PROCESSED = Path(__file__).parent.parent.parent / "data" / "processed"
 
-DISCLAIMER = (
-    "This model is for research and entertainment purposes only. "
-    "Not financial advice. Past backtest performance does not guarantee future results."
-)
-
 
 @st.cache_data(ttl=1800)
-def load_preds():
-    p = PROCESSED / "predictions_2026.parquet"
-    if p.exists():
-        return pd.read_parquet(p)
-    p = PROCESSED / "predictions_2026.csv"
-    if p.exists():
-        return pd.read_csv(p)
+def load_data():
+    edge_path = PROCESSED / "edge_2026.csv"
+    preds_path = PROCESSED / "predictions_2026.parquet"
+
+    if not edge_path.exists():
+        return None
+
+    edge = pd.read_csv(edge_path)
+
+    # Merge top-20 model probs from predictions if available
+    if preds_path.exists():
+        preds = pd.read_parquet(preds_path)
+        t20_cols = [c for c in preds.columns if "top20" in c.lower() or "top_20" in c.lower()]
+        if t20_cols and "player_name" in preds.columns:
+            edge = edge.merge(
+                preds[["player_name"] + t20_cols],
+                on="player_name",
+                how="left",
+                suffixes=("", "_pred"),
+            )
+
+    return edge
+
+
+df = load_data()
+
+if df is None:
+    st.error("Edge data not found. Run: `python run_production.py`")
+    st.stop()
+
+# ── Column detection ──────────────────────────────────────────────────────────
+def find_col(df, candidates):
+    for c in candidates:
+        if c in df.columns:
+            return c
     return None
 
 
-preds = load_preds()
-if preds is None:
-    st.error("Predictions not found. Run: `python run_production.py`")
+model_win_col = find_col(df, ["model_win_pct", "model_win"])
+mkt_win_col   = find_col(df, ["dk_fair_win_pct", "market_win_pct"])
+edge_win_col  = find_col(df, ["win_kelly_edge", "win_edge_pct"])
+
+model_t10_col = find_col(df, ["model_top10_pct", "model_top10"])
+mkt_t10_col   = find_col(df, ["dk_fair_top10_pct", "market_top10_pct"])
+edge_t10_col  = find_col(df, ["top10_kelly_edge", "top10_edge_pct"])
+
+model_t20_col = find_col(df, ["model_top20_pct", "model_top20", "top20_prob"])
+
+# ── Controls ──────────────────────────────────────────────────────────────────
+st.title("Best Bets — Value vs Market")
+st.caption("Edges vs **DraftKings** closing lines. Kelly edge = (model − book) / book.")
+
+col_ctrl1, col_ctrl2, col_ctrl3 = st.columns([1, 1, 2])
+with col_ctrl1:
+    min_edge = st.slider(
+        "Min Win Edge (Kelly)",
+        min_value=-2.0,
+        max_value=5.0,
+        value=0.0,
+        step=0.1,
+        help="Show only players where win Kelly edge ≥ this value. 0 = model beats the market.",
+    )
+with col_ctrl2:
+    sort_by = st.selectbox(
+        "Sort by",
+        ["Win Edge", "T10 Edge", "Win %", "T10 %"],
+    )
+
+# ── Build display table ───────────────────────────────────────────────────────
+required = [model_win_col, mkt_win_col, edge_win_col, model_t10_col, mkt_t10_col, edge_t10_col]
+if not all(required):
+    missing = [c for c, v in zip(
+        ["model_win", "mkt_win", "edge_win", "model_t10", "mkt_t10", "edge_t10"], required
+    ) if v is None]
+    st.error(f"Missing columns in edge_2026.csv: {missing}")
     st.stop()
 
-# ── Sidebar controls ──────────────────────────────────────────────────────────
-st.sidebar.title("⛳ Best Bets")
-min_edge_pct = st.sidebar.slider(
-    "Min edge threshold (%)",
-    min_value=-50, max_value=50, value=5, step=1,
-    help="Filter to players where model edge exceeds this % (positive = model likes them more than books)"
-)
-show_fades = st.sidebar.checkbox("Show fade candidates (model < book)", value=True)
-top_n = st.sidebar.slider("Max players to display", 10, 80, 30, 5)
+cols_needed = ["player_name", model_win_col, mkt_win_col, edge_win_col,
+               model_t10_col, mkt_t10_col, edge_t10_col]
+if model_t20_col:
+    cols_needed.append(model_t20_col)
 
-st.title("Best Bets — Betting Value vs Market")
-st.caption("Market odds source: **DraftKings**  |  Edge = Model % − Book %  |  Kelly = (Model − Book) / Book")
+table = df[cols_needed].copy()
 
-# ── Build edge tables ─────────────────────────────────────────────────────────
+# Rename for display
+rename = {
+    "player_name": "Player",
+    model_win_col: "Model Win%",
+    mkt_win_col:   "Book Win%",
+    edge_win_col:  "Win Edge",
+    model_t10_col: "Model T10%",
+    mkt_t10_col:   "Book T10%",
+    edge_t10_col:  "T10 Edge",
+}
+if model_t20_col:
+    rename[model_t20_col] = "Model T20%"
 
-def _kelly(model_p, book_p):
-    """Kelly edge fraction: (edge / book odds)."""
-    valid = (book_p > 0.01) & np.isfinite(book_p)
-    result = np.where(valid, (model_p - book_p) / book_p, np.nan)
-    return result
+table = table.rename(columns=rename)
 
+sort_map = {
+    "Win Edge": "Win Edge",
+    "T10 Edge": "T10 Edge",
+    "Win %": "Model Win%",
+    "T10 %": "Model T10%",
+}
+table = table.sort_values(sort_map[sort_by], ascending=False).reset_index(drop=True)
 
-def build_win_table(df):
-    needed = ["player_name", "win_prob"]
-    if not all(c in df.columns for c in needed):
-        return None
-    t = df[needed].copy()
-    t["model_win_pct"] = t["win_prob"]
-    has_market = "dk_fair_prob_win" in df.columns and df["dk_fair_prob_win"].notna().any()
-    if has_market:
-        t["book_win_pct"] = df["dk_fair_prob_win"]
-        t["win_edge"] = t["model_win_pct"] - t["book_win_pct"]
-        t["kelly_win"] = _kelly(t["model_win_pct"].values, t["book_win_pct"].values)
-    else:
-        t["book_win_pct"] = np.nan
-        t["win_edge"] = np.nan
-        t["kelly_win"] = np.nan
-    if "dg_rank" in df.columns:
-        t["dg_rank"] = df["dg_rank"]
-    return t.dropna(subset=["model_win_pct"])
+# Filter
+table = table[table["Win Edge"] >= min_edge]
 
+# ── Summary metrics ───────────────────────────────────────────────────────────
+n_positive_win  = (df[edge_win_col] > 0).sum()
+n_positive_t10  = (df[edge_t10_col] > 0).sum()
+n_strong_win    = (df[edge_win_col] > 1.0).sum()
 
-def build_t10_table(df):
-    needed = ["player_name", "top10_prob"]
-    if not all(c in df.columns for c in needed):
-        return None
-    t = df[needed].copy()
-    t["model_t10_pct"] = t["top10_prob"]
-    has_market = "dk_fair_prob_top10" in df.columns and df["dk_fair_prob_top10"].notna().any()
-    if has_market:
-        t["book_t10_pct"] = df["dk_fair_prob_top10"]
-        t["t10_edge"] = t["model_t10_pct"] - t["book_t10_pct"]
-        t["kelly_t10"] = _kelly(t["model_t10_pct"].values, t["book_t10_pct"].values)
-    else:
-        t["book_t10_pct"] = np.nan
-        t["t10_edge"] = np.nan
-        t["kelly_t10"] = np.nan
-    if "dg_rank" in df.columns:
-        t["dg_rank"] = df["dg_rank"]
-    return t.dropna(subset=["model_t10_pct"])
+m1, m2, m3, m4 = st.columns(4)
+m1.metric("Players shown", len(table))
+m2.metric("Win+ edges (full field)", n_positive_win)
+m3.metric("T10+ edges (full field)", n_positive_t10)
+m4.metric("Strong win edges (>1.0)", n_strong_win)
+st.markdown("---")
 
-
-def build_t20_table(df):
-    needed = ["player_name", "top20_prob"]
-    if not all(c in df.columns for c in needed):
-        return None
-    t = df[needed].copy()
-    t["model_t20_pct"] = t["top20_prob"]
-    # No DK market for T20 yet — show model-only
-    t["book_t20_pct"] = np.nan
-    t["t20_edge"] = np.nan
-    t["kelly_t20"] = np.nan
-    if "dg_rank" in df.columns:
-        t["dg_rank"] = df["dg_rank"]
-    return t.dropna(subset=["model_t20_pct"])
-
-
-# ── Display helpers ────────────────────────────────────────────────────────────
-
-def _color_edge(val):
+# ── Styling ───────────────────────────────────────────────────────────────────
+def style_edge(val):
     """Green for positive edge, red for negative."""
-    if pd.isna(val):
+    try:
+        v = float(val)
+        if v > 0.5:
+            return "background-color: #1a472a; color: #7dcea0; font-weight: bold"
+        elif v > 0:
+            return "background-color: #145a32; color: #a9dfbf"
+        elif v < -0.5:
+            return "background-color: #641e16; color: #f1948a; font-weight: bold"
+        else:
+            return "background-color: #7b241c; color: #f5cba7"
+    except (ValueError, TypeError):
         return ""
-    if val > 0.02:
-        return "background-color: #d4edda; color: #155724"
-    if val < -0.02:
-        return "background-color: #f8d7da; color: #721c24"
-    return "background-color: #fff3cd; color: #856404"
 
 
-def show_market_tab(table, model_col, book_col, edge_col, kelly_col, market_label):
-    if table is None:
-        st.info("No data available.")
-        return
-
-    no_market = table[edge_col].isna().all() if edge_col in table.columns else True
-
-    if no_market:
-        st.info(f"No {market_label} market data available — showing model probabilities only.")
-        display = table.sort_values(model_col, ascending=False).head(top_n).copy()
-        display = display.reset_index(drop=True)
-        display.index += 1
-        fmt = {model_col: "{:.1%}"}
-        st.dataframe(display[["player_name", model_col]].rename(
-            columns={"player_name": "Player", model_col: "Model %"}
-        ).style.format(fmt), use_container_width=True)
-        st.caption(DISCLAIMER)
-        return
-
-    # Filter by edge threshold
-    threshold = min_edge_pct / 100
-    value_bets = table[table[edge_col] >= threshold].copy()
-    value_bets = value_bets.sort_values(edge_col, ascending=False).head(top_n)
-
-    if len(value_bets) == 0:
-        st.info(f"No value bets above {min_edge_pct}% edge threshold. Try lowering the slider.")
-    else:
-        st.markdown(f"#### Value Bets — edge ≥ {min_edge_pct}%")
-        _render_edge_table(value_bets, model_col, book_col, edge_col, kelly_col)
-        st.caption(f"{len(value_bets)} player(s) above threshold")
-
-    if show_fades:
-        fades = table[table[edge_col] < -0.10].sort_values(edge_col).head(10).copy()
-        if len(fades) > 0:
-            st.markdown("#### Fade Candidates — model significantly below market")
-            _render_edge_table(fades, model_col, book_col, edge_col, kelly_col)
-
-    st.markdown("---")
-    st.caption(DISCLAIMER)
+def format_pct(val):
+    try:
+        return f"{float(val):.1%}"
+    except (ValueError, TypeError):
+        return str(val)
 
 
-def _render_edge_table(df, model_col, book_col, edge_col, kelly_col):
-    display = df.copy()
-    display = display.reset_index(drop=True)
-    display.index += 1
-
-    cols = {"player_name": "Player", model_col: "Model %", book_col: "Book %", edge_col: "Edge"}
-    has_kelly = kelly_col in display.columns and display[kelly_col].notna().any()
-    has_rank = "dg_rank" in display.columns
-
-    select = ["player_name", model_col, book_col, edge_col]
-    if has_kelly:
-        select.append(kelly_col)
-        cols[kelly_col] = "Kelly"
-    if has_rank:
-        select.append("dg_rank")
-        cols["dg_rank"] = "DG Rank"
-    select = [c for c in select if c in display.columns]
-
-    display = display[select].rename(columns=cols)
-
-    fmt = {"Model %": "{:.1%}", "Book %": "{:.1%}", "Edge": "{:+.1%}"}
-    if "Kelly" in display.columns:
-        fmt["Kelly"] = "{:+.0%}"
-    if "DG Rank" in display.columns:
-        fmt["DG Rank"] = lambda v: f"#{int(v)}" if pd.notna(v) and v > 0 else "—"
-
-    styled = display.style.format(fmt)
-    if "Edge" in display.columns:
-        styled = styled.applymap(_color_edge, subset=["Edge"])
-
-    st.dataframe(styled, use_container_width=True)
+def format_edge(val):
+    try:
+        v = float(val)
+        return f"{v:+.2f}x"
+    except (ValueError, TypeError):
+        return str(val)
 
 
-# ── Tabs ───────────────────────────────────────────────────────────────────────
+# Build a formatted copy for display
+display = table.copy()
+for col in ["Model Win%", "Book Win%", "Model T10%", "Book T10%"]:
+    if col in display.columns:
+        display[col] = display[col].apply(format_pct)
+if "Model T20%" in display.columns:
+    display["Model T20%"] = display["Model T20%"].apply(format_pct)
 
-tab_win, tab_t10, tab_t20 = st.tabs(["Win Market", "Top-10 Market", "Top-20 (Model Only)"])
+edge_cols_display = [c for c in ["Win Edge", "T10 Edge"] if c in display.columns]
+for col in edge_cols_display:
+    display[col] = display[col].apply(format_edge)
 
-win_table = build_win_table(preds)
-t10_table = build_t10_table(preds)
-t20_table = build_t20_table(preds)
+styled = display.style.applymap(style_edge, subset=edge_cols_display)
 
-with tab_win:
-    show_market_tab(win_table, "model_win_pct", "book_win_pct", "win_edge", "kelly_win", "Win")
+st.dataframe(styled, use_container_width=True, height=600, hide_index=True)
 
-with tab_t10:
-    show_market_tab(t10_table, "model_t10_pct", "book_t10_pct", "t10_edge", "kelly_t10", "Top-10")
+if len(table) == 0:
+    st.info(f"No players with Win Edge ≥ {min_edge:.1f}. Lower the threshold.")
 
-with tab_t20:
-    st.info("DraftKings doesn't offer a standard Top-20 market — showing model probabilities only.")
-    if t20_table is not None:
-        t20_disp = t20_table.sort_values("model_t20_pct", ascending=False).head(top_n).copy()
-        t20_disp = t20_disp.reset_index(drop=True)
-        t20_disp.index += 1
-        show_cols = ["player_name", "model_t20_pct"]
-        if "dg_rank" in t20_disp.columns:
-            show_cols.append("dg_rank")
-        t20_disp = t20_disp[show_cols].rename(columns={
-            "player_name": "Player", "model_t20_pct": "Model Top-20 %", "dg_rank": "DG Rank"
-        })
-        fmt = {"Model Top-20 %": "{:.1%}"}
-        if "DG Rank" in t20_disp.columns:
-            fmt["DG Rank"] = lambda v: f"#{int(v)}" if pd.notna(v) and v > 0 else "—"
-        st.dataframe(t20_disp.style.format(fmt), use_container_width=True)
-    st.caption(DISCLAIMER)
+# ── Top plays callout ─────────────────────────────────────────────────────────
+st.markdown("---")
+st.subheader("Top Value Plays")
+col_plays, col_fades = st.columns(2)
+
+with col_plays:
+    st.markdown("**Backs (positive win edge)**")
+    backs = df[df[edge_win_col] > 0].sort_values(edge_win_col, ascending=False).head(8)
+    for _, row in backs.iterrows():
+        edge_val = row[edge_win_col]
+        model_pct = row[model_win_col]
+        book_pct  = row[mkt_win_col]
+        bar = "🟢" if edge_val > 1 else "🔵"
+        st.markdown(
+            f"{bar} **{row['player_name']}** — "
+            f"Model {model_pct:.1%} vs Book {book_pct:.1%} "
+            f"_(edge {edge_val:+.2f}x)_"
+        )
+
+with col_fades:
+    st.markdown("**Fades (model below market)**")
+    fades = df[df[edge_win_col] < -0.3].sort_values(edge_win_col).head(8)
+    for _, row in fades.iterrows():
+        edge_val = row[edge_win_col]
+        model_pct = row[model_win_col]
+        book_pct  = row[mkt_win_col]
+        st.markdown(
+            f"🔴 **{row['player_name']}** — "
+            f"Model {model_pct:.1%} vs Book {book_pct:.1%} "
+            f"_(edge {edge_val:+.2f}x)_"
+        )
+
+st.markdown("---")
+st.caption(
+    "Kelly edge = (model_prob − book_prob) / book_prob. "
+    "Values >0 mean model gives higher probability than the market implies. "
+    "This model is for research and entertainment only. Not financial advice."
+)
