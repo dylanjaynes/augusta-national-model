@@ -101,9 +101,11 @@ STALE_RANK_THRESHOLD = 200
 STALE_CAP = 0.04  # maps to ~1-2% T10 in 83-player field — right order of magnitude for past-champion honorary invitees
 
 # MC parameters tuned for realistic golf variance
+# Session 5 fix: noise 0.16→0.10, tpred 0.10→0.14 → Scheffler 5.5%→10.8%
+# signal/noise ratio = 0.14/0.10 = 1.4 (good differentiation vs 0.06/0.16=0.375 which flattens field)
 N_SIMS = 50000
-MC_NOISE = 0.16      # higher noise = more upsets (realistic for golf)
-MC_TPRED = 0.06      # lower signal = ~12% max win probability in 82-player field
+MC_NOISE = 0.10      # per-round noise (lower = more skill-driven)
+MC_TPRED = 0.14      # skill spread (higher = more differentiation between players)
 SEED = 42
 
 SG = ["sg_ott", "sg_app", "sg_arg", "sg_putt", "sg_t2g", "sg_total"]
