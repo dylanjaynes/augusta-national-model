@@ -1,0 +1,414 @@
+"""
+Live inference script for the Augusta National Model.
+
+Takes current tournament state (player scores through N holes) and produces
+updated win/top10/top20 probabilities.
+
+Can be run every 5-10 minutes during the tournament.
+
+Usage:
+    # From a CSV/JSON of current scores:
+    python3 scripts/run_live_inference.py --scores path/to/live_scores.csv
+
+    # From DataGolf live tournament stats API:
+    python3 scripts/run_live_inference.py --dg-live
+
+    # Demo mode with test data:
+    python3 scripts/run_live_inference.py --demo
+"""
+
+from __future__ import annotations
+
+import argparse
+import json
+import os
+import sys
+import time
+from pathlib import Path
+from datetime import datetime
+
+ROOT = Path(__file__).parents[1]
+sys.path.insert(0, str(ROOT))
+
+import numpy as np
+import pandas as pd
+import requests
+
+from augusta_model.features.live_features import (
+    _load_course_stats,
+    _get_weather_for_round,
+    compute_snapshot_features,
+    add_pretournament_baseline,
+)
+from augusta_model.model.live_model import (
+    load_live_model,
+    _prepare_features,
+    predict_live,
+)
+
+DATA_DIR = ROOT / "data" / "processed"
+OUTPUT_DIR = ROOT / "data" / "live"
+
+OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+
+DATAGOLF_API_KEY = os.getenv("DATAGOLF_API_KEY", "91328c2c8e115c9e9b13461a8c3f")
+
+# DataGolf live stats endpoint
+DG_LIVE_URL = "https://feeds.datagolf.com/preds/live-tournament-stats"
+
+
+def fetch_dg_live_scores() -> pd.DataFrame:
+    """
+    Fetch live tournament stats from DataGolf API.
+
+    Returns DataFrame with columns:
+        player_name, dg_id, round, holes_completed, current_score_to_par
+    """
+    params = {
+        "tour": "pga",
+        "event_id": "masters",
+        "odds_format": "decimal",
+        "file_format": "json",
+        "key": DATAGOLF_API_KEY,
+    }
+    try:
+        resp = requests.get(DG_LIVE_URL, params=params, timeout=10)
+        resp.raise_for_status()
+        data = resp.json()
+    except Exception as e:
+        print(f"  DG live API error: {e}")
+        return pd.DataFrame()
+
+    if not data or "data" not in data:
+        print(f"  DG live API: unexpected response format")
+        return pd.DataFrame()
+
+    rows = []
+    for player in data.get("data", []):
+        rows.append({
+            "player_name": player.get("player_name", ""),
+            "dg_id": player.get("dg_id"),
+            "round": player.get("current_round", 1),
+            "holes_completed": player.get("thru", 0),
+            "current_score_to_par": player.get("current_score", 0),
+            "today_score": player.get("today", 0),
+        })
+
+    return pd.DataFrame(rows)
+
+
+def parse_live_scores_csv(path: str) -> pd.DataFrame:
+    """
+    Parse a CSV of live scores. Expected columns:
+        player_name, round, holes_completed, score_to_par
+    Optionally: hole_1...hole_18 (individual hole scores)
+    """
+    df = pd.read_csv(path)
+    required = ["player_name", "round", "holes_completed", "score_to_par"]
+    missing = [c for c in required if c not in df.columns]
+    if missing:
+        raise ValueError(f"CSV missing required columns: {missing}")
+    return df
+
+
+def build_snapshot_from_live_scores(
+    live_df: pd.DataFrame,
+    course_stats: pd.DataFrame,
+    weather_hourly: pd.DataFrame,
+    current_round: int = 1,
+    year: int = 2026,
+) -> pd.DataFrame:
+    """
+    Convert live score data into a feature snapshot DataFrame.
+
+    live_df: DataFrame with player_name, holes_completed, score_to_par,
+             and optionally individual hole scores.
+    """
+    # Load hole-by-hole data as a proxy for detailed scoring
+    hbh_path = DATA_DIR / "masters_hole_by_hole.parquet"
+    has_hbh = hbh_path.exists()
+
+    rows = []
+    for _, player_row in live_df.iterrows():
+        player_name = str(player_row["player_name"])
+        holes_done = int(player_row.get("holes_completed", 0))
+        total_score = int(player_row.get("score_to_par", 0))
+
+        # Build a synthetic hole-by-hole if we only have aggregate scores
+        # Distribute the total score proportionally across known avg difficulty
+        if has_hbh:
+            # Try to use actual hole-level scores from live data if provided
+            hole_cols = [c for c in player_row.index if str(c).startswith("hole_")]
+            if hole_cols and len(hole_cols) >= holes_done:
+                # We have individual hole scores — use them directly
+                hole_records = []
+                for i, hcol in enumerate(hole_cols[:holes_done]):
+                    hole_num = i + 1
+                    par_row = course_stats[course_stats["hole_number"] == hole_num]
+                    par = int(par_row.iloc[0]["par"]) if len(par_row) > 0 else 4
+                    raw_score = int(player_row[hcol]) if not pd.isna(player_row[hcol]) else par
+                    hole_records.append({
+                        "hole_number": hole_num,
+                        "par": par,
+                        "score": raw_score,
+                        "score_to_par": raw_score - par,
+                    })
+                player_holes = pd.DataFrame(hole_records)
+            else:
+                # Synthetic: spread total score proportionally across avg difficulty
+                player_holes = _synthesize_hole_scores(total_score, holes_done, course_stats)
+        else:
+            player_holes = _synthesize_hole_scores(total_score, holes_done, course_stats)
+
+        weather_row = _get_weather_for_round(weather_hourly, year, current_round)
+        feat = compute_snapshot_features(
+            player_holes=player_holes,
+            snapshot_hole=holes_done,
+            course_stats=course_stats,
+            weather_row=weather_row,
+        )
+        feat["player_name"] = player_name
+        feat["round_num"] = current_round
+        feat["year"] = year
+        feat["snapshot_hole"] = holes_done
+
+        # For live scoring: total to par across all rounds
+        if "total_score_to_par" in player_row.index:
+            feat["total_score_to_par"] = int(player_row["total_score_to_par"])
+        else:
+            feat["total_score_to_par"] = total_score
+
+        rows.append(feat)
+
+    return pd.DataFrame(rows)
+
+
+def _synthesize_hole_scores(
+    total_score_to_par: int,
+    holes_done: int,
+    course_stats: pd.DataFrame,
+) -> pd.DataFrame:
+    """
+    Synthesize hole-level scores from aggregate score + holes completed.
+    Distributes total score proportionally to historical difficulty.
+    """
+    if holes_done == 0:
+        return pd.DataFrame(columns=["hole_number", "par", "score", "score_to_par"])
+
+    played_holes = list(range(1, holes_done + 1))
+    played_stats = course_stats[course_stats["hole_number"].isin(played_holes)].copy()
+
+    if played_stats.empty:
+        return pd.DataFrame(columns=["hole_number", "par", "score", "score_to_par"])
+
+    # Distribute total score proportionally by avg difficulty
+    total_avg_diff = played_stats["avg_score_to_par"].sum()
+    records = []
+    distributed = 0
+    for i, (_, hrow) in enumerate(played_stats.iterrows()):
+        if i < len(played_stats) - 1:
+            # Proportional allocation
+            if total_avg_diff != 0:
+                share = hrow["avg_score_to_par"] / total_avg_diff
+                hole_stp = int(round(total_score_to_par * share))
+            else:
+                hole_stp = 0
+            distributed += hole_stp
+        else:
+            # Last hole gets the remainder
+            hole_stp = total_score_to_par - distributed
+
+        par = 4  # default
+        records.append({
+            "hole_number": int(hrow["hole_number"]),
+            "par": par,
+            "score": par + hole_stp,
+            "score_to_par": hole_stp,
+        })
+
+    return pd.DataFrame(records)
+
+
+def generate_demo_scores(predictions_df: pd.DataFrame, round_num: int = 1) -> pd.DataFrame:
+    """
+    Generate synthetic 'live' scores for demo purposes.
+    Uses historical scoring variance to create realistic snapshots.
+    """
+    np.random.seed(42 + round_num)
+    players = predictions_df["player_name"].head(20).tolist()
+
+    rows = []
+    for player in players:
+        # Simulate random holes completed (3-18)
+        holes = np.random.choice([3, 6, 9, 12, 15, 18])
+        # Simulate score: better players have slightly lower scores
+        player_row = predictions_df[predictions_df["player_name"] == player]
+        skill = float(player_row["model_score"].iloc[0]) if len(player_row) > 0 else 0.3
+        avg_stp = (0.5 - skill) * 2  # better players average under par
+        score = int(np.random.normal(avg_stp * holes / 18, 1.5))
+        rows.append({
+            "player_name": player,
+            "round": round_num,
+            "holes_completed": holes,
+            "score_to_par": score,
+        })
+
+    return pd.DataFrame(rows)
+
+
+def run_inference(
+    live_scores: pd.DataFrame,
+    predictions_df: pd.DataFrame,
+    course_stats: pd.DataFrame,
+    weather_hourly: pd.DataFrame,
+    current_round: int = 1,
+    year: int = 2026,
+    verbose: bool = True,
+) -> pd.DataFrame:
+    """
+    Main inference function. Returns updated probability DataFrame.
+    """
+    print(f"  Building feature snapshots for {len(live_scores)} players...")
+    snapshot_df = build_snapshot_from_live_scores(
+        live_df=live_scores,
+        course_stats=course_stats,
+        weather_hourly=weather_hourly,
+        current_round=current_round,
+        year=year,
+    )
+
+    print(f"  Loading live model...")
+    clf, reg, feature_cols, metadata = load_live_model()
+
+    print(f"  Running predictions...")
+    results = predict_live(
+        snapshot_df=snapshot_df,
+        clf=clf,
+        reg=reg,
+        feature_cols=feature_cols,
+        predictions_2026=predictions_df,
+    )
+
+    # Add current score info for display
+    if "total_score_to_par" in snapshot_df.columns:
+        score_map = snapshot_df.set_index("player_name")["total_score_to_par"]
+        results["current_score_to_par"] = results["player_name"].map(score_map)
+    elif "cumulative_score_to_par" in snapshot_df.columns:
+        score_map = snapshot_df.set_index("player_name")["cumulative_score_to_par"]
+        results["current_score_to_par"] = results["player_name"].map(score_map)
+
+    # Join pre-tournament odds for edge comparison
+    if "market_win" in predictions_df.columns:
+        mkt_map = predictions_df.set_index("player_name")[["market_win", "market_top10"]].to_dict()
+        results["market_win"] = results["player_name"].map(mkt_map["market_win"])
+        results["market_top10"] = results["player_name"].map(mkt_map["market_top10"])
+        results["win_edge_vs_market"] = results["blended_win_prob"] - results["market_win"].fillna(0)
+
+    # Sort by live probability
+    results = results.sort_values("blended_top10_prob", ascending=False).reset_index(drop=True)
+    results["live_rank"] = range(1, len(results) + 1)
+
+    # Pre-tournament rank for comparison
+    if "win_prob" in predictions_df.columns:
+        pre_rank_map = (
+            predictions_df.sort_values("win_prob", ascending=False)
+            .reset_index(drop=True)
+            .assign(pre_rank=lambda x: range(1, len(x) + 1))
+            .set_index("player_name")["pre_rank"]
+        )
+        results["pre_tournament_rank"] = results["player_name"].map(pre_rank_map)
+        results["rank_change"] = results["pre_tournament_rank"] - results["live_rank"]
+
+    if verbose:
+        print(f"\n{'Rank':>4} | {'Player':<25} | {'Score':>6} | {'Holes':>5} | {'T10%':>6} | {'Win%':>5} | {'Move':>5}")
+        print("-" * 70)
+        for _, row in results.head(20).iterrows():
+            score_str = f"{int(row.get('current_score_to_par', 0)):+d}" if pd.notna(row.get('current_score_to_par')) else "  E"
+            holes_str = f"{int(row.get('holes_completed', 0))}/18"
+            move = row.get("rank_change", 0)
+            move_str = f"{int(move):+d}" if pd.notna(move) else " --"
+            print(
+                f"{row['live_rank']:4d} | {row['player_name']:<25} | "
+                f"{score_str:>6} | {holes_str:>5} | "
+                f"{row['blended_top10_prob']:6.1%} | "
+                f"{row['blended_win_prob']:5.1%} | "
+                f"{move_str:>5}"
+            )
+
+    return results
+
+
+def save_results(results: pd.DataFrame, suffix: str = "") -> Path:
+    """Save inference results to live data directory."""
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    fname = f"live_predictions_{timestamp}{suffix}.csv"
+    out_path = OUTPUT_DIR / fname
+    results.to_csv(out_path, index=False)
+
+    # Also save as 'latest' for Streamlit to read
+    latest_path = OUTPUT_DIR / "live_predictions_latest.csv"
+    results.to_csv(latest_path, index=False)
+
+    print(f"\nResults saved to {out_path}")
+    return out_path
+
+
+def main():
+    parser = argparse.ArgumentParser(description="Run live in-tournament inference")
+    parser.add_argument("--scores", help="Path to CSV of live scores")
+    parser.add_argument("--dg-live", action="store_true", help="Fetch from DataGolf live API")
+    parser.add_argument("--demo", action="store_true", help="Demo mode with synthetic scores")
+    parser.add_argument("--round", type=int, default=1, help="Current round (1-4)")
+    parser.add_argument("--year", type=int, default=2026, help="Tournament year")
+    parser.add_argument("--loop", action="store_true", help="Run every 5 minutes continuously")
+    parser.add_argument("--interval", type=int, default=300, help="Polling interval in seconds")
+    args = parser.parse_args()
+
+    print("Loading base data...")
+    predictions_df = pd.read_parquet(DATA_DIR / "predictions_2026.parquet")
+    weather_hourly = pd.read_parquet(DATA_DIR / "masters_weather_hourly.parquet")
+    hbh = pd.read_parquet(DATA_DIR / "masters_hole_by_hole.parquet")
+    course_stats = _load_course_stats(hbh[hbh["year"] <= 2025])
+
+    print(f"  {len(predictions_df)} players in pre-tournament predictions")
+    print(f"  {len(weather_hourly)} hourly weather rows")
+
+    def run_once():
+        print(f"\n[{datetime.now().strftime('%H:%M:%S')}] Running live inference...")
+
+        if args.scores:
+            live_scores = parse_live_scores_csv(args.scores)
+        elif args.dg_live:
+            live_scores = fetch_dg_live_scores()
+            if live_scores.empty:
+                print("  No live data returned from DG API")
+                return
+        elif args.demo:
+            live_scores = generate_demo_scores(predictions_df, round_num=args.round)
+        else:
+            print("Specify --scores, --dg-live, or --demo")
+            parser.print_help()
+            return
+
+        results = run_inference(
+            live_scores=live_scores,
+            predictions_df=predictions_df,
+            course_stats=course_stats,
+            weather_hourly=weather_hourly,
+            current_round=args.round,
+            year=args.year,
+        )
+        save_results(results)
+
+    if args.loop:
+        print(f"Polling every {args.interval} seconds. Ctrl+C to stop.")
+        while True:
+            run_once()
+            print(f"  Waiting {args.interval}s...")
+            time.sleep(args.interval)
+    else:
+        run_once()
+
+
+if __name__ == "__main__":
+    main()

@@ -1,0 +1,94 @@
+{
+  "train_years": [
+    2015,
+    2016,
+    2017,
+    2018,
+    2019,
+    2020,
+    2021,
+    2022,
+    2023
+  ],
+  "val_year": 2024,
+  "n_train": 15744,
+  "n_val": 1788,
+  "feature_cols": [
+    "cumulative_score_to_par",
+    "cumulative_birdie_rate",
+    "cumulative_bogey_rate",
+    "par5_scoring",
+    "par3_scoring",
+    "front_nine_score",
+    "back_nine_score",
+    "amen_corner_score",
+    "scoring_trend",
+    "holes_completed_pct",
+    "confidence_weight",
+    "holes_remaining",
+    "remaining_difficulty",
+    "hard_holes_remaining",
+    "birdie_holes_remaining",
+    "current_wind_speed",
+    "temperature",
+    "precipitation",
+    "weather_severity_score",
+    "morning_afternoon",
+    "win_prob",
+    "top10_prob",
+    "dg_rank",
+    "model_score",
+    "stage2_prob_raw",
+    "augusta_competitive_rounds",
+    "augusta_experience_tier",
+    "augusta_made_cut_prev_year",
+    "augusta_scoring_trajectory",
+    "tour_vs_augusta_divergence",
+    "wind_x_difficulty",
+    "projected_final_score"
+  ],
+  "val_auc_top10": 0.8372,
+  "val_spearman": 0.5478,
+  "val_top10_precision": 0.0,
+  "snapshot_hole": null,
+  "test_auc_top10": 0.7252,
+  "test_spearman": 0.5476,
+  "snapshot_metrics_val": [
+    {
+      "snapshot": 3,
+      "n": 298,
+      "auc": 0.815,
+      "spearman": 0.457
+    },
+    {
+      "snapshot": 6,
+      "n": 298,
+      "auc": 0.832,
+      "spearman": 0.5
+    },
+    {
+      "snapshot": 9,
+      "n": 298,
+      "auc": 0.844,
+      "spearman": 0.547
+    },
+    {
+      "snapshot": 12,
+      "n": 298,
+      "auc": 0.843,
+      "spearman": 0.567
+    },
+    {
+      "snapshot": 15,
+      "n": 298,
+      "auc": 0.847,
+      "spearman": 0.587
+    },
+    {
+      "snapshot": 18,
+      "n": 298,
+      "auc": 0.853,
+      "spearman": 0.635
+    }
+  ]
+}
