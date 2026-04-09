@@ -158,6 +158,73 @@ def parse_finish(p):
         return None
 
 
+def fetch_dg_market_odds():
+    """Fetch real sportsbook odds from DataGolf for win/top5/top10/top20.
+
+    Strategy:
+      1. Try betting-tools/outrights (live pre-event odds from 11 books).
+      2. Fall back to preds/pre-tournament (market-calibrated snapshot) if
+         outrights return 0 results (event in progress, markets closed).
+
+    Returns DataFrame: player_name, market_win, market_top5, market_top10, market_top20
+    """
+    # ── Attempt 1: live outright markets ──────────────────────────────────────
+    market_data = {}
+    markets_found = 0
+    for mkt_key, col in [("win", "market_win"), ("top_5", "market_top5"),
+                         ("top_10", "market_top10"), ("top_20", "market_top20")]:
+        try:
+            r = requests.get(
+                f"{DG_BASE}/betting-tools/outrights",
+                params={"tour": "pga", "market": mkt_key, "odds_format": "percent",
+                        "file_format": "json", "key": API_KEY},
+                timeout=15,
+            )
+            if r.status_code == 200:
+                players = r.json().get("results", [])
+                if players:
+                    markets_found += 1
+                    for p in players:
+                        name = normalize_name(p.get("player_name", ""))
+                        market_data.setdefault(name, {})[col] = p.get("baseline")
+        except Exception:
+            pass
+
+    if markets_found > 0:
+        rows = [{"player_name": k, **v} for k, v in market_data.items()]
+        df = pd.DataFrame(rows)
+        print(f"  DG betting-tools: {len(df)} players ({markets_found}/4 markets live)")
+        return df
+
+    # ── Attempt 2: pre-tournament snapshot (market-calibrated) ───────────────
+    try:
+        r = requests.get(
+            f"{DG_BASE}/preds/pre-tournament",
+            params={"tour": "pga", "add_position": "1,5,10,20",
+                    "file_format": "json", "key": API_KEY},
+            timeout=15,
+        )
+        if r.status_code == 200:
+            data = r.json()
+            players = data.get("baseline", [])
+            if players:
+                rows = [{
+                    "player_name": normalize_name(p["player_name"]),
+                    "market_win":   p.get("win"),
+                    "market_top5":  p.get("top_5"),
+                    "market_top10": p.get("top_10"),
+                    "market_top20": p.get("top_20"),
+                } for p in players]
+                df = pd.DataFrame(rows)
+                updated = data.get("last_updated", "unknown")
+                print(f"  DG pre-tournament snapshot: {len(df)} players (as of {updated})")
+                return df
+    except Exception as e:
+        print(f"  DG market odds fetch failed: {e}")
+
+    return None
+
+
 def normalize_name(n):
     n = str(n).strip()
     if "," in n:
@@ -776,22 +843,35 @@ def predict_2026(tour_feat, unified, features, rounds_df, s1_model):
     fdf["make_cut_prob"] = cal["make_cut_prob"].values
     fdf["s2_platt"] = cal["s2_calibrated"].values
 
-    # Join DK odds
-    dk_path = PROCESSED / "dk_odds_2026.csv"
-    if dk_path.exists():
-        dk = pd.read_csv(dk_path)
-        for _, orow in dk.iterrows():
-            best = process.extractOne(orow["player_name"], fdf["player_name"].tolist(), scorer=fuzz.ratio)
-            if best and best[1] >= 85:
+    # ── Join market odds from DataGolf (real sportsbook lines) ───────────────
+    # Tries betting-tools/outrights first (live), falls back to pre-tournament snapshot.
+    print("\n  Fetching market odds...")
+    mkt = fetch_dg_market_odds()
+    if mkt is not None:
+        for _, mrow in mkt.iterrows():
+            best = process.extractOne(mrow["player_name"], fdf["player_name"].tolist(), scorer=fuzz.ratio)
+            if best and best[1] >= 80:
                 idx = fdf[fdf["player_name"] == best[0]].index
                 if len(idx) > 0:
-                    fdf.loc[idx[0], "dk_fair_prob_win"] = orow.get("dk_fair_prob")
-                    fdf.loc[idx[0], "dk_fair_prob_top10"] = orow.get("dk_fair_top10")
-                    fdf.loc[idx[0], "dk_american_odds"] = orow.get("dk_american_odds")
-        dk_win = fdf.get("dk_fair_prob_win", pd.Series(0)).fillna(0)
-        dk_t10 = fdf.get("dk_fair_prob_top10", pd.Series(0)).fillna(0)
-        fdf["kelly_edge_win"] = np.where(dk_win > 0, (fdf["win_prob"] - dk_win) / dk_win, 0)
-        fdf["kelly_edge_top10"] = np.where(dk_t10 > 0, (fdf["top10_prob"] - dk_t10) / dk_t10, 0)
+                    for src_col, dst_col in [
+                        ("market_win",   "market_win"),
+                        ("market_top5",  "market_top5"),
+                        ("market_top10", "market_top10"),
+                        ("market_top20", "market_top20"),
+                    ]:
+                        if src_col in mrow and pd.notna(mrow[src_col]):
+                            fdf.loc[idx[0], dst_col] = mrow[src_col]
+        mkt_win  = fdf.get("market_win",   pd.Series(dtype=float)).reindex(fdf.index).fillna(0)
+        mkt_t10  = fdf.get("market_top10", pd.Series(dtype=float)).reindex(fdf.index).fillna(0)
+        mkt_t20  = fdf.get("market_top20", pd.Series(dtype=float)).reindex(fdf.index).fillna(0)
+        fdf["kelly_edge_win"]   = np.where(mkt_win  > 0, (fdf["win_prob"]   - mkt_win)  / mkt_win,  np.nan)
+        fdf["kelly_edge_top10"] = np.where(mkt_t10  > 0, (fdf["top10_prob"] - mkt_t10)  / mkt_t10,  np.nan)
+        fdf["kelly_edge_top20"] = np.where(mkt_t20  > 0, (fdf["top20_prob"] - mkt_t20)  / mkt_t20,  np.nan)
+        # Keep dk_fair_prob_win/top10 aliases for backward compatibility with Streamlit pages
+        fdf["dk_fair_prob_win"]   = fdf.get("market_win",   pd.Series(dtype=float)).reindex(fdf.index)
+        fdf["dk_fair_prob_top10"] = fdf.get("market_top10", pd.Series(dtype=float)).reindex(fdf.index)
+    else:
+        print("  WARNING: No market odds available — edges will be NaN")
 
     # ── Post-MC hard cap for honorary invitees (unranked past champions) ──
     # MC noise gives every player ~4-6% T10 even at zero skill due to golf variance.
@@ -844,8 +924,9 @@ def predict_2026(tour_feat, unified, features, rounds_df, s1_model):
         "augusta_competitive_rounds", "augusta_experience_tier",
         "augusta_made_cut_prev_year", "augusta_scoring_trajectory",
         "tour_vs_augusta_divergence",
-        "dk_fair_prob_win", "dk_fair_prob_top10", "dk_american_odds",
-        "kelly_edge_win", "kelly_edge_top10",
+        "market_win", "market_top5", "market_top10", "market_top20",
+        "dk_fair_prob_win", "dk_fair_prob_top10",
+        "kelly_edge_win", "kelly_edge_top10", "kelly_edge_top20",
     ] if c in fdf.columns]
 
     save = fdf[out_cols]

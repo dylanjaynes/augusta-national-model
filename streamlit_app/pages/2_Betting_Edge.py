@@ -1,86 +1,95 @@
 import streamlit as st
 import pandas as pd
 from pathlib import Path
+import sys
+
+sys.path.insert(0, str(Path(__file__).parent.parent))
+from market_odds import fetch_market_odds, merge_with_model
 
 st.set_page_config(page_title="Betting Edge — Augusta Model", layout="wide", page_icon="⛳")
+
 PROCESSED = Path(__file__).parent.parent.parent / "data" / "processed"
 
-@st.cache_data(ttl=1800)
-def load_edge():
-    p = PROCESSED / "edge_2026.csv"
-    if not p.exists(): return None
-    return pd.read_csv(p)
 
-edge = load_edge()
-if edge is None:
-    st.error("Edge data not found. Run: `python run_production.py`")
+@st.cache_data(ttl=1800)
+def load_model_preds():
+    p = PROCESSED / "predictions_2026.parquet"
+    if p.exists():
+        return pd.read_parquet(p)
+    return None
+
+
+model_df = load_model_preds()
+if model_df is None:
+    st.error("Predictions not found. Run: `python run_production.py`")
     st.stop()
 
+model_df = model_df.sort_values("win_prob", ascending=False).reset_index(drop=True)
+
+market_df = fetch_market_odds()
+if market_df is None:
+    st.warning("Could not fetch live market odds. Set DATAGOLF_API_KEY in secrets.")
+    st.stop()
+
+source_label = market_df["_source"].iloc[0] if "_source" in market_df.columns else "DataGolf"
+df = merge_with_model(model_df, market_df)
+# Only players with real market lines
+df = df[df["market_win"].fillna(0) >= 0.005].copy()
+
 st.title("Betting Edge — Value vs Market")
-st.caption("Market odds source: **DraftKings**")
+st.caption(f"Market odds: **{source_label}**")
 
 threshold = st.sidebar.slider("Edge threshold (%)", 10, 50, 20, 5)
 st.sidebar.markdown("Only shows plays with edge above this threshold")
 
-# Detect column names (handle different CSV formats)
-def find_col(df, candidates):
-    for c in candidates:
-        if c in df.columns:
-            return c
-    return None
+tab_t10, tab_win, tab_t20 = st.tabs(["Top-10 Market", "Win Market", "Top-20 Market"])
 
-model_t10 = find_col(edge, ["model_top10_pct", "model_top10"])
-mkt_t10 = find_col(edge, ["market_top10_pct", "dk_fair_top10_pct"])
-edge_t10 = find_col(edge, ["top10_edge_pct", "top10_kelly_edge"])
-model_win = find_col(edge, ["model_win_pct", "model_win"])
-mkt_win = find_col(edge, ["market_win_pct", "dk_fair_win_pct"])
-edge_win = find_col(edge, ["win_edge_pct", "win_kelly_edge"])
-model_t20 = find_col(edge, ["model_top20_pct", "model_top20"])
 
-tab_t10, tab_win = st.tabs(["Top-10 Market", "Win Market"])
-
-def show_market_tab(df, model_col, market_col, edge_col, threshold_pct):
-    if not all([model_col, market_col, edge_col]):
-        st.info("Required columns not found in edge data")
+def show_tab(df, model_col, mkt_col, edge_col, threshold_pct, label):
+    if model_col not in df.columns or mkt_col not in df.columns:
+        st.info(f"No data for {label}")
         return
 
-    filtered = df[df[edge_col] > threshold_pct / 100].sort_values(edge_col, ascending=False).copy()
-    display_cols = ["player_name", model_col, market_col, edge_col]
-    if "fade_reason" in df.columns:
-        display_cols.append("fade_reason")
+    df2 = df[[c for c in ["player_name", model_col, mkt_col, edge_col] if c in df.columns]].copy()
+    df2.columns = ["Player", "Model %", "Market %", "Edge %"][:len(df2.columns)]
+    df2 = df2.dropna(subset=["Market %"])
 
-    display = filtered[display_cols].copy()
-    names = ["Player", "Model %", "Market %", "Edge %"]
-    if "fade_reason" in display.columns:
-        names.append("Notes")
-    display.columns = names
-    display["Model %"] = display["Model %"].map("{:.1%}".format)
-    display["Market %"] = display["Market %"].map("{:.1%}".format)
-    display["Edge %"] = display["Edge %"].map("{:+.0%}".format)
+    positive = df2[df2["Edge %"].fillna(0) > threshold_pct / 100].sort_values(
+        "Edge %", ascending=False)
+    for col in ["Model %", "Market %"]:
+        if col in positive.columns:
+            positive = positive.copy()
+            positive[col] = positive[col].map("{:.1%}".format)
+    if "Edge %" in positive.columns:
+        positive = positive.copy()
+        positive["Edge %"] = positive["Edge %"].map("{:+.0%}".format)
 
-    if len(display) == 0:
-        st.info(f"No plays above {threshold_pct}% edge threshold")
+    if len(positive):
+        st.dataframe(positive, width="stretch", height=500, hide_index=True)
+        st.caption(f"{len(positive)} plays above {threshold_pct}% edge")
     else:
-        st.dataframe(display, use_container_width=True, height=600)
-        st.caption(f"{len(display)} plays above {threshold_pct}% edge")
+        st.info(f"No plays above {threshold_pct}% edge")
 
-    # Fades
-    fades = df[df[edge_col] < -0.30].sort_values(edge_col).head(10).copy()
-    if len(fades) > 0:
-        st.markdown("#### Fade Candidates (model below market)")
-        fade_disp = fades[["player_name", model_col, market_col, edge_col]].copy()
-        fade_disp.columns = ["Player", "Model %", "Market %", "Edge %"]
-        fade_disp["Model %"] = fade_disp["Model %"].map("{:.1%}".format)
-        fade_disp["Market %"] = fade_disp["Market %"].map("{:.1%}".format)
-        fade_disp["Edge %"] = fade_disp["Edge %"].map("{:+.0%}".format)
-        st.dataframe(fade_disp, use_container_width=True)
+    fades = df2[df2["Edge %"].fillna(0) < -0.30].sort_values("Edge %").head(10)
+    if len(fades):
+        st.markdown("#### Fades (model below market)")
+        fades = fades.copy()
+        for col in ["Model %", "Market %"]:
+            if col in fades.columns:
+                fades[col] = fades[col].map("{:.1%}".format)
+        if "Edge %" in fades.columns:
+            fades["Edge %"] = fades["Edge %"].map("{:+.0%}".format)
+        st.dataframe(fades, width="stretch", hide_index=True)
 
     st.markdown("---")
-    st.caption("This model is for research and entertainment purposes only. Not financial advice. "
-               "Past backtest performance does not guarantee future results.")
+    st.caption("For research and entertainment only. Not financial advice.")
+
 
 with tab_t10:
-    show_market_tab(edge, model_t10, mkt_t10, edge_t10, threshold)
+    show_tab(df, "top10_prob", "market_top10", "kelly_edge_top10", threshold, "Top-10")
 
 with tab_win:
-    show_market_tab(edge, model_win, mkt_win, edge_win, threshold)
+    show_tab(df, "win_prob", "market_win", "kelly_edge_win", threshold, "Win")
+
+with tab_t20:
+    show_tab(df, "top20_prob", "market_top20", "kelly_edge_top20", threshold, "Top-20")
