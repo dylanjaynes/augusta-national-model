@@ -57,17 +57,26 @@ DATAGOLF_API_KEY = os.getenv("DATAGOLF_API_KEY", "91328c2c8e115c9e9b13461a8c3f")
 DG_LIVE_URL = "https://feeds.datagolf.com/preds/live-tournament-stats"
 
 
+def _normalize_name(name: str) -> str:
+    """Convert 'Last, First' → 'First Last'. Leaves 'First Last' unchanged."""
+    name = name.strip()
+    if "," in name:
+        parts = name.split(",", 1)
+        return f"{parts[1].strip()} {parts[0].strip()}"
+    return name
+
+
 def fetch_dg_live_scores() -> pd.DataFrame:
     """
-    Fetch live tournament stats from DataGolf API.
+    Fetch live tournament stats from DataGolf API (live-tournament-stats endpoint).
 
     Returns DataFrame with columns:
         player_name, dg_id, round, holes_completed, current_score_to_par
+        plus SG stats: sg_ott, sg_app, sg_arg, sg_putt, sg_t2g, sg_total
     """
     params = {
-        "tour": "pga",
-        "event_id": "masters",
-        "odds_format": "decimal",
+        "stats": "sg_putt,sg_arg,sg_app,sg_ott,sg_t2g,sg_bs,sg_total",
+        "round": "event_cumulative",
         "file_format": "json",
         "key": DATAGOLF_API_KEY,
     }
@@ -79,19 +88,71 @@ def fetch_dg_live_scores() -> pd.DataFrame:
         print(f"  DG live API error: {e}")
         return pd.DataFrame()
 
-    if not data or "data" not in data:
-        print(f"  DG live API: unexpected response format")
+    # API returns live_stats key (not data)
+    if not data or "live_stats" not in data:
+        print(f"  DG live API: unexpected response format, keys={list(data.keys()) if data else []}")
+        return pd.DataFrame()
+
+    print(f"  Live data as of: {data.get('last_updated', 'unknown')}")
+    print(f"  Event: {data.get('event_name', 'unknown')}")
+
+    rows = []
+    for player in data.get("live_stats", []):
+        rows.append({
+            "player_name": _normalize_name(player.get("player_name", "")),
+            "dg_id": player.get("dg_id"),
+            # 'total' = cumulative score to par, 'round' = today's score
+            "round": 1,  # current_round not in this endpoint; use thru to infer
+            "holes_completed": player.get("thru", 0) or 0,
+            "current_score_to_par": player.get("total", 0) or 0,
+            "today_score": player.get("round", 0) or 0,
+            "position": player.get("position", ""),
+            # SG stats (event cumulative)
+            "sg_ott": player.get("sg_ott"),
+            "sg_app": player.get("sg_app"),
+            "sg_arg": player.get("sg_arg"),
+            "sg_putt": player.get("sg_putt"),
+            "sg_t2g": player.get("sg_t2g"),
+            "sg_total": player.get("sg_total"),
+        })
+
+    return pd.DataFrame(rows)
+
+
+def fetch_dg_inplay_predictions() -> pd.DataFrame:
+    """
+    Fetch DataGolf's own in-play model predictions.
+    Returns win/top5/top10/top20/make_cut probabilities per player.
+    """
+    url = "https://feeds.datagolf.com/preds/in-play"
+    params = {
+        "tour": "pga",
+        "file_format": "json",
+        "key": DATAGOLF_API_KEY,
+    }
+    try:
+        resp = requests.get(url, params=params, timeout=10)
+        resp.raise_for_status()
+        data = resp.json()
+    except Exception as e:
+        print(f"  DG in-play API error: {e}")
         return pd.DataFrame()
 
     rows = []
     for player in data.get("data", []):
         rows.append({
-            "player_name": player.get("player_name", ""),
+            "player_name": _normalize_name(player.get("player_name", "")),
             "dg_id": player.get("dg_id"),
-            "round": player.get("current_round", 1),
-            "holes_completed": player.get("thru", 0),
-            "current_score_to_par": player.get("current_score", 0),
-            "today_score": player.get("today", 0),
+            "current_round": player.get("round", 1),
+            "current_pos": player.get("current_pos", ""),
+            "current_score": player.get("current_score", 0) or 0,
+            "today": player.get("today", 0) or 0,
+            "thru": player.get("thru", 0) or 0,
+            "dg_win_prob": player.get("win", 0) or 0,
+            "dg_top5_prob": player.get("top_5", 0) or 0,
+            "dg_top10_prob": player.get("top_10", 0) or 0,
+            "dg_top20_prob": player.get("top_20", 0) or 0,
+            "dg_make_cut": player.get("make_cut", 0) or 0,
         })
 
     return pd.DataFrame(rows)
@@ -132,7 +193,12 @@ def build_snapshot_from_live_scores(
     for _, player_row in live_df.iterrows():
         player_name = str(player_row["player_name"])
         holes_done = int(player_row.get("holes_completed", 0))
-        total_score = int(player_row.get("score_to_par", 0))
+        # Support both field names (live API uses current_score_to_par)
+        total_score = int(
+            player_row.get("current_score_to_par")
+            or player_row.get("score_to_par")
+            or 0
+        )
 
         # Build a synthetic hole-by-hole if we only have aggregate scores
         # Distribute the total score proportionally across known avg difficulty
@@ -378,26 +444,54 @@ def main():
 
         if args.scores:
             live_scores = parse_live_scores_csv(args.scores)
+            dg_inplay = pd.DataFrame()
         elif args.dg_live:
             live_scores = fetch_dg_live_scores()
             if live_scores.empty:
                 print("  No live data returned from DG API")
                 return
+            print("  Fetching DG in-play predictions...")
+            dg_inplay = fetch_dg_inplay_predictions()
         elif args.demo:
             live_scores = generate_demo_scores(predictions_df, round_num=args.round)
+            dg_inplay = pd.DataFrame()
         else:
             print("Specify --scores, --dg-live, or --demo")
             parser.print_help()
             return
+
+        # Infer current round from in-play data if available
+        if not dg_inplay.empty and "current_round" in dg_inplay.columns:
+            round_mode = dg_inplay["current_round"].mode()
+            current_round = int(round_mode.iloc[0]) if len(round_mode) > 0 else args.round
+            if current_round != args.round:
+                print(f"  Auto-detected round {current_round} from DG in-play data")
+        else:
+            current_round = args.round
 
         results = run_inference(
             live_scores=live_scores,
             predictions_df=predictions_df,
             course_stats=course_stats,
             weather_hourly=weather_hourly,
-            current_round=args.round,
+            current_round=current_round,
             year=args.year,
         )
+
+        # Merge DG in-play predictions for richer output
+        if not dg_inplay.empty:
+            results = results.merge(
+                dg_inplay[["player_name", "current_pos", "current_score", "thru",
+                            "today", "dg_win_prob", "dg_top5_prob", "dg_top10_prob",
+                            "dg_top20_prob", "dg_make_cut"]],
+                on="player_name",
+                how="left",
+            )
+            # Edge vs DG model on top-10
+            results["edge_vs_dg_top10"] = (
+                results["blended_top10_prob"] - results["dg_top10_prob"].fillna(0)
+            )
+
         save_results(results)
 
     if args.loop:
