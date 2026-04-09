@@ -40,6 +40,7 @@ st.sidebar.page_link("pages/1_Model_Picks.py", label="Model Picks")
 st.sidebar.page_link("pages/2_Betting_Edge.py", label="Betting Edge")
 st.sidebar.page_link("pages/3_H2H_Matchups.py", label="H2H Matchups")
 st.sidebar.page_link("pages/4_Backtest.py", label="Backtest")
+st.sidebar.page_link("pages/5_Best_Bets.py", label="Best Bets")
 
 st.title("⛳ 2026 Masters — Augusta National Model")
 st.markdown("Two-stage XGBoost + Monte Carlo model with Augusta-specific experience features. "

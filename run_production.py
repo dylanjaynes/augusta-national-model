@@ -246,7 +246,7 @@ class FieldStrengthLookup:
 
 def build_rolling_features(df, fs_lookup=None):
     """Build rolling SG features, optionally weighted by field strength."""
-    df = df.sort_values(["player_name", "date"]).copy()
+    df = df.sort_values(["player_name", "season", "date"]).copy()
 
     if fs_lookup is not None:
         df["_fs_weight"] = df.apply(
@@ -438,7 +438,7 @@ def train_s2(unified, features, tour_feat, max_year):
     s2r = []
     for _, row in s2t.iterrows():
         pn, ps = row["player_name"], row["season"]
-        pt = tour_feat[(tour_feat["player_name"] == pn) & (tour_feat["season"] <= ps)]
+        pt = tour_feat[(tour_feat["player_name"] == pn) & (tour_feat["season"] < ps)]
         f2 = {"idx": row.name}
         if len(pt) > 0:
             lat = pt.iloc[-1]

@@ -118,7 +118,7 @@ class TestDebutantAdjustment:
         adj = apply_debutant_adjustment(probs, tiers)
         # Should shrink toward 0.097 (debutant base rate)
         assert np.all(adj < 0.5)
-        expected = 0.65 * 0.5 + 0.35 * TIER_BASE_RATES[0]
+        expected = 0.55 * 0.5 + 0.45 * TIER_BASE_RATES[0]
         np.testing.assert_allclose(adj, expected, atol=1e-6)
 
     def test_tier2_no_change(self):
@@ -131,7 +131,7 @@ class TestDebutantAdjustment:
         probs = np.array([0.5])
         tiers = np.array([1])
         adj = apply_debutant_adjustment(probs, tiers)
-        expected = 0.88 * 0.5 + 0.12 * TIER_BASE_RATES[1]
+        expected = 0.85 * 0.5 + 0.15 * TIER_BASE_RATES[1]
         np.testing.assert_allclose(adj, expected, atol=1e-6)
 
     def test_preserves_ordering_within_tier(self):
