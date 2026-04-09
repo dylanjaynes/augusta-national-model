@@ -14,10 +14,55 @@ Both sessions: READ this file before starting work. UPDATE it when claiming or c
 | C | main | /Users/dylanjaynes/Augusta National Model/ |
 | **pensive-wing** | claude/pensive-wing | .claude/worktrees/pensive-wing/ |
 | **magical-vaughan** | claude/magical-vaughan | .claude/worktrees/magical-vaughan/ |
+| **sleepy-turing** | claude/sleepy-turing | .claude/worktrees/sleepy-turing/ |
+| **brave-shannon** | claude/brave-shannon | .claude/worktrees/brave-shannon/ |
+| **elegant-kare** | claude/elegant-kare | .claude/worktrees/elegant-kare/ |
+| **focused-germain** | claude/focused-germain | .claude/worktrees/focused-germain/ |
+| **confident-mcnulty** | claude/confident-mcnulty | .claude/worktrees/confident-mcnulty/ |
 
 ## Task Claims
 
 Mark tasks here before starting to avoid conflicts. Format: `- [ ] Task — claimed by [A/B]`
+
+- [x] **Live model pipeline validated + committed to focused-germain — focused-germain (DONE, 2026-04-09)**
+  - Re-ran full pipeline: build_live_training_data.py → 19,320 rows, evaluate_live_model.py → fresh results
+  - Committed all 6 live files to claude/focused-germain (commit 3f71c4b)
+  - Backtest results (avg 2024+2025): Hole3 AUC=0.746, Hole9=0.779, Hole18=0.815 vs baseline=0.777
+  - Live beats baseline from hole 9+, beats leaderboard at all points; T10 prec=57.7% at hole 18
+
+- [x] **Live model merged to main — elegant-kare (DONE, 2026-04-09)**
+  - All 6 live files + 4 model files committed to main (commit 651f8e3)
+  - Backtest results confirmed (see below)
+  - Files were untracked in main — now committed
+
+- [x] **Live in-tournament prediction model — brave-shannon (DONE)**
+  - Built: augusta_model/features/live_features.py, augusta_model/model/live_model.py
+  - Built: scripts/build_live_training_data.py, scripts/evaluate_live_model.py, scripts/run_live_inference.py
+  - Built: streamlit_app/pages/6_Live_Tournament.py
+  - New data: data/processed/live_training_data.parquet (19,320 rows), course_hole_stats.parquet
+  - New models: models/live_clf_top10.json, models/live_reg_finish.json, models/live_feature_cols.json
+  - New live output: data/live/live_predictions_latest.csv (written each inference run)
+  - BACKTEST RESULTS (avg 2024+2025):
+    - Hole  3: Live AUC=0.746, Base=0.777, Leaderboard=0.643, T10 Prec=57.7%
+    - Hole  9: Live AUC=0.779, Base=0.777, Leaderboard=0.723, T10 Prec=46.2%
+    - Hole 18: Live AUC=0.815, Base=0.777, Leaderboard=0.790, T10 Prec=57.7%
+    - Live model beats leaderboard at all snapshot points (+2.5pp AUC at hole 18)
+    - Pre-tournament baseline stronger early (3 holes), live model takes over after 9 holes
+  - USAGE: python3 scripts/run_live_inference.py --demo (or --dg-live for real data, --loop for polling)
+
+- [x] **Shot-level / hole-level data scraping — sleepy-turing (DONE)**
+  - Weather: DONE — `scrape_masters_weather.py` saved 1,056 hourly rows to `masters_weather_hourly.parquet`
+    and updated `masters_weather.parquet` (11 seasons, 2015-2025) via Open-Meteo historical API
+  - Hole-by-hole: Another session started `scripts/scrape_masters_hole_by_hole.py` (main dir, PID 15260)
+    producing `masters_hole_by_hole.parquet` — currently scraping ~2020/2021 as of 12:20pm
+    DO NOT start another hole scraper — it has checkpoint support and will resume if killed
+  - Post-processor: `build_masters_shot_tables.py` will convert hole_by_hole → `masters_hole_stats.parquet`
+    + `masters_shots.parquet` once the scraper completes. Run: `python3 build_masters_shot_tables.py`
+  - DATA LIMITATION NOTE: Masters does not participate in ShotLink. Putts/GIR/FIR/drive distance/
+    approach distance are NOT available from any public source for historical Masters data.
+    masters_hole_stats.parquet will have: season, player_name, round_num, hole_num, par, score,
+    score_type, relative_to_par, round_total, made_cut, finish_pos, hole_yards, hole_name
+    masters_shots.parquet will have: derived shot_type/lie only (distances=NULL)
 
 - [x] **Final bug validation — nostalgic-fermi (DONE)**
   - Ran comprehensive validate_all_bugs.py — 13 PASS, 8 FAIL
@@ -81,6 +126,31 @@ Mark tasks here before starting to avoid conflicts. Format: `- [ ] Task — clai
   - DeChambeau: ott=1.692 for total=2.349 (driving-dominant, matches real profile)
   - Also cleaned 3,205 duplicate 2024 rows (past-results overlap with golden endpoint)
   - Dataset: 42,122 rows, 100% sg_ott coverage across all seasons
+
+- [x] **Hole-by-hole scorecard scraper — distracted-davinci (DONE)**
+  - Scraped ESPN Core API (`sports.core.api.espn.com`) for all 11 Masters (2015-2025)
+  - Output: `data/processed/masters_hole_by_hole.parquet` + `.csv`
+  - **57,863 rows** | 314 unique players | 11 years | 99.2% DG ID coverage
+  - Columns: year, player_name, espn_id, dg_id, round, hole_number, par, score, score_to_par, score_type, tee_time (last round), starting_hole, made_cut, finish_pos, hole_name, yards
+  - Per-year counts: ~87-97 players/yr, ~5,000-5,500 rows/yr
+  - score_type values: PAR (34k), BOGEY (11k), BIRDIE (10k), DOUBLE_BOGEY (1.3k), EAGLE (315)
+  - 3 unmatched ESPN→DG names: Ludvig Åberg (too new), Charles Osborne (amateur), Ángel Cabrera (accent)
+  - Scraper script: `scripts/scrape_masters_hole_by_hole.py` (supports checkpointing + partial year args)
+  - Also saved: `data/processed/augusta_course_info.parquet` (18 holes, par, yards, hole name)
+  - Verified: Scheffler 2024 R1 = 66 (-6) ✓
+
+- [x] **Data validation — intelligent-mayer (DONE)**
+  - Ran 16-check validation on all 5 scraped files
+  - **13/16 genuine PASS** — all 3 "failures" are false alarms or known non-issues:
+  - CHECK 6 (cut line): 5-round players = playoff participants (García/Rose 2017, McIlroy/Rose 2025 ✓);
+    1-round = WD (Kevin Na 2023, Oosthuizen 2022, van Rooyen 2020); 3-round = Tiger WD R3 2023 ✓
+  - CHECK 11 (temp): 37.2°F is realistic overnight low for Augusta April — check threshold was wrong
+  - CHECK 16 (dg_id): masters_hole_stats.parquet lost dg_ids in post-processing BUG;
+    masters_hole_by_hole.parquet has 57,395/57,863 dg_ids (99.2%) — use hbh directly
+  - **Score data is clean**: 0 duplicate rows, 0 sum mismatches, 0 missing holes, all 11 years present
+  - **Known winner scores verified**: Rahm 2023 (65-69-73-69=276 ✓), Scheffler 2024 R1=66 ✓,
+    DJ 2020 (65-70-65-68=268 ✓), Tiger 2019 (70-68-67-70=275 ✓), all 6 checked match exactly
+  - **Action needed**: fix build_masters_shot_tables.py to propagate dg_id from hbh → hole_stats
 
 ## Completed
 

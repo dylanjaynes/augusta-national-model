@@ -46,8 +46,17 @@ from augusta_model.model.live_model import (
     predict_live,
 )
 
-DATA_DIR = ROOT / "data" / "processed"
-OUTPUT_DIR = ROOT / "data" / "live"
+# Support running from a worktree — data lives in the main project
+_CANDIDATE_ROOTS = [ROOT, ROOT.parent.parent.parent]
+DATA_DIR = next(
+    (
+        r / "data" / "processed"
+        for r in _CANDIDATE_ROOTS
+        if (r / "data" / "processed" / "masters_weather_hourly.parquet").exists()
+    ),
+    ROOT / "data" / "processed",
+)
+OUTPUT_DIR = DATA_DIR.parent / "live"
 
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
@@ -55,6 +64,7 @@ DATAGOLF_API_KEY = os.getenv("DATAGOLF_API_KEY", "91328c2c8e115c9e9b13461a8c3f")
 
 # DataGolf live stats endpoint
 DG_LIVE_URL = "https://feeds.datagolf.com/preds/live-tournament-stats"
+DG_INPLAY_URL = "https://feeds.datagolf.com/preds/in-play"
 
 
 def fetch_dg_live_scores() -> pd.DataFrame:
@@ -62,12 +72,15 @@ def fetch_dg_live_scores() -> pd.DataFrame:
     Fetch live tournament stats from DataGolf API.
 
     Returns DataFrame with columns:
-        player_name, dg_id, round, holes_completed, current_score_to_par
+        player_name, dg_id, round_num, holes_completed, score_to_par,
+        today_score, sg_ott, sg_app, sg_arg, sg_putt, sg_total
+
+    API response format:
+        {"live_stats": [{player_name, dg_id, thru, total, round,
+                         sg_ott, sg_app, sg_arg, sg_putt, sg_total, ...}]}
     """
     params = {
-        "tour": "pga",
-        "event_id": "masters",
-        "odds_format": "decimal",
+        "stats": "sg_putt,sg_arg,sg_app,sg_ott,sg_total",
         "file_format": "json",
         "key": DATAGOLF_API_KEY,
     }
@@ -76,24 +89,88 @@ def fetch_dg_live_scores() -> pd.DataFrame:
         resp.raise_for_status()
         data = resp.json()
     except Exception as e:
-        print(f"  DG live API error: {e}")
+        print(f"  DG live-tournament-stats API error: {e}")
         return pd.DataFrame()
 
-    if not data or "data" not in data:
-        print(f"  DG live API: unexpected response format")
+    if not data or "live_stats" not in data:
+        print(f"  DG live API: unexpected response format. Keys: {list(data.keys()) if data else 'empty'}")
         return pd.DataFrame()
+
+    # Also fetch in-play probs to get current round number
+    current_round = _fetch_current_round()
 
     rows = []
-    for player in data.get("data", []):
+    for player in data.get("live_stats", []):
         rows.append({
             "player_name": player.get("player_name", ""),
             "dg_id": player.get("dg_id"),
-            "round": player.get("current_round", 1),
-            "holes_completed": player.get("thru", 0),
-            "current_score_to_par": player.get("current_score", 0),
-            "today_score": player.get("today", 0),
+            "round_num": current_round,
+            "holes_completed": player.get("thru", 0) or 0,
+            # "total" = cumulative score to par; "round" = today's score
+            "score_to_par": player.get("total", 0) or 0,
+            "today_score": player.get("round", 0) or 0,
+            # SG stats (accumulated this round)
+            "sg_ott": player.get("sg_ott"),
+            "sg_app": player.get("sg_app"),
+            "sg_arg": player.get("sg_arg"),
+            "sg_putt": player.get("sg_putt"),
+            "sg_total": player.get("sg_total"),
         })
 
+    df = pd.DataFrame(rows)
+    print(f"  Fetched {len(df)} players from DG live-tournament-stats (round {current_round})")
+    return df
+
+
+def _fetch_current_round() -> int:
+    """Determine current round number from in-play endpoint."""
+    try:
+        resp = requests.get(
+            DG_INPLAY_URL,
+            params={"tour": "pga", "file_format": "json", "key": DATAGOLF_API_KEY},
+            timeout=10,
+        )
+        resp.raise_for_status()
+        data = resp.json()
+        players = data.get("data", [])
+        if players:
+            return int(players[0].get("round", 1))
+    except Exception:
+        pass
+    return 1
+
+
+def fetch_dg_inplay_probs() -> pd.DataFrame:
+    """
+    Fetch DataGolf's own live win/top5/top10/top20 probabilities.
+    Useful for side-by-side comparison with our model.
+    """
+    try:
+        resp = requests.get(
+            DG_INPLAY_URL,
+            params={"tour": "pga", "file_format": "json", "key": DATAGOLF_API_KEY},
+            timeout=10,
+        )
+        resp.raise_for_status()
+        data = resp.json()
+    except Exception as e:
+        print(f"  DG in-play API error: {e}")
+        return pd.DataFrame()
+
+    rows = []
+    for p in data.get("data", []):
+        rows.append({
+            "player_name": p.get("player_name", ""),
+            "dg_id": p.get("dg_id"),
+            "dg_win_prob": p.get("win", 0),
+            "dg_top5_prob": p.get("top_5", 0),
+            "dg_top10_prob": p.get("top_10", 0),
+            "dg_top20_prob": p.get("top_20", 0),
+            "dg_make_cut": p.get("make_cut", 0),
+            "current_pos": p.get("current_pos", ""),
+            "current_score": p.get("current_score", 0),
+            "thru": p.get("thru", 0),
+        })
     return pd.DataFrame(rows)
 
 
@@ -131,8 +208,11 @@ def build_snapshot_from_live_scores(
     rows = []
     for _, player_row in live_df.iterrows():
         player_name = str(player_row["player_name"])
-        holes_done = int(player_row.get("holes_completed", 0))
-        total_score = int(player_row.get("score_to_par", 0))
+        holes_done = int(player_row.get("holes_completed", 0) or 0)
+        # Support both key names: score_to_par (from DG fetch) and current_score_to_par
+        total_score = int(
+            player_row.get("score_to_par", player_row.get("current_score_to_par", 0)) or 0
+        )
 
         # Build a synthetic hole-by-hole if we only have aggregate scores
         # Distribute the total score proportionally across known avg difficulty
@@ -339,7 +419,7 @@ def run_inference(
 
 
 def save_results(results: pd.DataFrame, suffix: str = "") -> Path:
-    """Save inference results to live data directory."""
+    """Save inference results to live data directory and processed parquet."""
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     fname = f"live_predictions_{timestamp}{suffix}.csv"
     out_path = OUTPUT_DIR / fname
@@ -349,7 +429,12 @@ def save_results(results: pd.DataFrame, suffix: str = "") -> Path:
     latest_path = OUTPUT_DIR / "live_predictions_latest.csv"
     results.to_csv(latest_path, index=False)
 
+    # Also save as parquet in processed dir for easy loading
+    parquet_path = DATA_DIR / "live_predictions.parquet"
+    results.to_parquet(parquet_path, index=False)
+
     print(f"\nResults saved to {out_path}")
+    print(f"Parquet saved to {parquet_path}")
     return out_path
 
 
@@ -376,6 +461,7 @@ def main():
     def run_once():
         print(f"\n[{datetime.now().strftime('%H:%M:%S')}] Running live inference...")
 
+        dg_inplay = pd.DataFrame()
         if args.scores:
             live_scores = parse_live_scores_csv(args.scores)
         elif args.dg_live:
@@ -383,6 +469,13 @@ def main():
             if live_scores.empty:
                 print("  No live data returned from DG API")
                 return
+            dg_inplay = fetch_dg_inplay_probs()
+            # Use round from live data if available
+            if "round_num" in live_scores.columns and not live_scores["round_num"].isna().all():
+                current_round = int(live_scores["round_num"].dropna().iloc[0])
+                if current_round != args.round:
+                    print(f"  Auto-detected round {current_round} from API (--round was {args.round})")
+                    args.round = current_round
         elif args.demo:
             live_scores = generate_demo_scores(predictions_df, round_num=args.round)
         else:
@@ -398,6 +491,15 @@ def main():
             current_round=args.round,
             year=args.year,
         )
+
+        # Merge DG in-play probabilities for side-by-side comparison
+        if not dg_inplay.empty:
+            results = results.merge(
+                dg_inplay[["player_name", "dg_win_prob", "dg_top10_prob", "current_pos", "current_score", "thru"]],
+                on="player_name",
+                how="left",
+            )
+
         save_results(results)
 
     if args.loop:
