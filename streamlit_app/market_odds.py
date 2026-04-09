@@ -8,6 +8,7 @@ Returns a DataFrame with columns:
   player_name, market_win, market_top5, market_top10, market_top20, _source
 """
 import os
+import unicodedata
 import requests
 import pandas as pd
 import streamlit as st
@@ -32,11 +33,17 @@ def _get_odds_key():
 
 
 def _normalize(name: str) -> str:
+    """Flip 'Last, First' → 'First Last'. Keep original casing/accents."""
     name = str(name).strip()
     if "," in name:
         parts = name.split(",", 1)
         return f"{parts[1].strip()} {parts[0].strip()}"
     return name
+
+
+def _ascii_lower(name: str) -> str:
+    """Strip accents and lowercase for fuzzy matching only."""
+    return unicodedata.normalize("NFD", name).encode("ascii", "ignore").decode().lower()
 
 
 def _american_to_prob(american: int) -> float:
@@ -247,15 +254,21 @@ def merge_with_model(model_df: pd.DataFrame, market_df: pd.DataFrame) -> pd.Data
         return merged
 
     result = model_df.copy()
-    mkt_names = market_df["player_name"].tolist()
+
+    # Build ASCII-lowercased lookup for robust matching
+    mkt_ascii = {_ascii_lower(n): n for n in market_df["player_name"].tolist()}
+    mkt_ascii_keys = list(mkt_ascii.keys())
 
     for col in ["market_win", "market_top5", "market_top10", "market_top20"]:
         result[col] = float("nan")
 
     for i, row in result.iterrows():
-        best = rfprocess.extractOne(row["player_name"], mkt_names, scorer=fuzz.ratio)
+        query = _ascii_lower(row["player_name"])
+        # token_set_ratio handles "Matt" vs "Matthew", "Alex" vs "Alexander", etc.
+        best = rfprocess.extractOne(query, mkt_ascii_keys, scorer=fuzz.token_set_ratio)
         if best and best[1] >= 80:
-            mrow = market_df[market_df["player_name"] == best[0]].iloc[0]
+            original_name = mkt_ascii[best[0]]
+            mrow = market_df[market_df["player_name"] == original_name].iloc[0]
             for col in ["market_win", "market_top5", "market_top10", "market_top20"]:
                 if col in mrow and pd.notna(mrow[col]):
                     result.at[i, col] = mrow[col]
