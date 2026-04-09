@@ -9,33 +9,20 @@ PROCESSED = Path(__file__).parent.parent.parent / "data" / "processed"
 
 @st.cache_data(ttl=1800)
 def load_data():
-    edge_path = PROCESSED / "edge_2026.csv"
     preds_path = PROCESSED / "predictions_2026.parquet"
-
-    if not edge_path.exists():
-        return None
-
-    edge = pd.read_csv(edge_path)
-
-    # Merge top-20 model probs from predictions if available
     if preds_path.exists():
-        preds = pd.read_parquet(preds_path)
-        t20_cols = [c for c in preds.columns if "top20" in c.lower() or "top_20" in c.lower()]
-        if t20_cols and "player_name" in preds.columns:
-            edge = edge.merge(
-                preds[["player_name"] + t20_cols],
-                on="player_name",
-                how="left",
-                suffixes=("", "_pred"),
-            )
-
-    return edge
+        return pd.read_parquet(preds_path)
+    # fallback to CSV
+    csv_path = PROCESSED / "predictions_2026.csv"
+    if csv_path.exists():
+        return pd.read_csv(csv_path)
+    return None
 
 
 df = load_data()
 
 if df is None:
-    st.error("Edge data not found. Run: `python run_production.py`")
+    st.error("Predictions not found. Run: `python run_production.py`")
     st.stop()
 
 # ── Column detection ──────────────────────────────────────────────────────────
@@ -46,15 +33,15 @@ def find_col(df, candidates):
     return None
 
 
-model_win_col = find_col(df, ["model_win_pct", "model_win"])
-mkt_win_col   = find_col(df, ["dk_fair_win_pct", "market_win_pct"])
-edge_win_col  = find_col(df, ["win_kelly_edge", "win_edge_pct"])
+model_win_col = find_col(df, ["win_prob", "model_win_pct", "model_win"])
+mkt_win_col   = find_col(df, ["dk_fair_prob_win", "dk_fair_win_pct", "market_win_pct"])
+edge_win_col  = find_col(df, ["kelly_edge_win", "win_kelly_edge", "win_edge_pct"])
 
-model_t10_col = find_col(df, ["model_top10_pct", "model_top10"])
-mkt_t10_col   = find_col(df, ["dk_fair_top10_pct", "market_top10_pct"])
-edge_t10_col  = find_col(df, ["top10_kelly_edge", "top10_edge_pct"])
+model_t10_col = find_col(df, ["top10_prob", "model_top10_pct", "model_top10"])
+mkt_t10_col   = find_col(df, ["dk_fair_prob_top10", "dk_fair_top10_pct", "market_top10_pct"])
+edge_t10_col  = find_col(df, ["kelly_edge_top10", "top10_kelly_edge", "top10_edge_pct"])
 
-model_t20_col = find_col(df, ["model_top20_pct", "model_top20", "top20_prob"])
+model_t20_col = find_col(df, ["top20_prob", "model_top20_pct", "model_top20"])
 
 # ── Controls ──────────────────────────────────────────────────────────────────
 st.title("Best Bets — Value vs Market")
@@ -90,7 +77,8 @@ cols_needed = ["player_name", model_win_col, mkt_win_col, edge_win_col,
 if model_t20_col:
     cols_needed.append(model_t20_col)
 
-table = df[cols_needed].copy()
+# Exclude players with no meaningful market odds (honorary invitees etc.)
+table = df[df[mkt_win_col].fillna(0) >= 0.005][cols_needed].copy()
 
 # Rename for display
 rename = {
@@ -119,9 +107,10 @@ table = table.sort_values(sort_map[sort_by], ascending=False).reset_index(drop=T
 table = table[table["Win Edge"] >= min_edge]
 
 # ── Summary metrics ───────────────────────────────────────────────────────────
-n_positive_win  = (df[edge_win_col] > 0).sum()
-n_positive_t10  = (df[edge_t10_col] > 0).sum()
-n_strong_win    = (df[edge_win_col] > 1.0).sum()
+market_df = df[df[mkt_win_col].fillna(0) >= 0.005]
+n_positive_win  = (market_df[edge_win_col] > 0).sum()
+n_positive_t10  = (market_df[edge_t10_col] > 0).sum()
+n_strong_win    = (market_df[edge_win_col] > 1.0).sum()
 
 m1, m2, m3, m4 = st.columns(4)
 m1.metric("Players shown", len(table))
@@ -188,7 +177,7 @@ col_plays, col_fades = st.columns(2)
 
 with col_plays:
     st.markdown("**Backs (positive win edge)**")
-    backs = df[df[edge_win_col] > 0].sort_values(edge_win_col, ascending=False).head(8)
+    backs = market_df[market_df[edge_win_col] > 0].sort_values(edge_win_col, ascending=False).head(8)
     for _, row in backs.iterrows():
         edge_val = row[edge_win_col]
         model_pct = row[model_win_col]
@@ -202,7 +191,7 @@ with col_plays:
 
 with col_fades:
     st.markdown("**Fades (model below market)**")
-    fades = df[df[edge_win_col] < -0.3].sort_values(edge_win_col).head(8)
+    fades = market_df[market_df[edge_win_col] < -0.3].sort_values(edge_win_col).head(8)
     for _, row in fades.iterrows():
         edge_val = row[edge_win_col]
         model_pct = row[model_win_col]
