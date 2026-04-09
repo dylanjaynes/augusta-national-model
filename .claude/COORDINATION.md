@@ -20,9 +20,21 @@ Both sessions: READ this file before starting work. UPDATE it when claiming or c
 | **focused-germain** | claude/focused-germain | .claude/worktrees/focused-germain/ |
 | **confident-mcnulty** | claude/confident-mcnulty | .claude/worktrees/confident-mcnulty/ |
 
+## Active Sessions (continued)
+| **exciting-austin** | claude/exciting-austin | .claude/worktrees/exciting-austin/ |
+
 ## Task Claims
 
 Mark tasks here before starting to avoid conflicts. Format: `- [ ] Task — claimed by [A/B]`
+
+- [x] **Fix run_live_inference.py for live Masters R1 data — exciting-austin (DONE, 2026-04-09)**
+  - Fixed: API returns `live_stats` key (not `data`), `total` for score (not `current_score`), `round` for today's score
+  - Fixed: `score_to_par`/`current_score_to_par` key mismatch in build_snapshot_from_live_scores
+  - Fixed: DATA_DIR worktree fallback to find main project data files
+  - Added: `fetch_dg_inplay_probs()` to merge DG's own live win/top10 probs
+  - Added: parquet save to data/processed/live_predictions.parquet for Streamlit
+  - Live inference working: 91 players, R1 complete
+  - R1 leaders: Burns/McIlroy co-lead at -5, Rose at -4 (thru 13), Day/Reed/Kitayama at -3
 
 - [x] **Live model pipeline validated + committed to focused-germain — focused-germain (DONE, 2026-04-09)**
   - Re-ran full pipeline: build_live_training_data.py → 19,320 rows, evaluate_live_model.py → fresh results

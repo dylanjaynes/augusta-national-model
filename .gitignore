@@ -13,6 +13,9 @@ venv/
 *.parquet
 *.csv
 
+# Keep live predictions for Streamlit Cloud
+!data/live/live_predictions_latest.csv
+
 # But keep these specific processed files for Streamlit deployment
 !data/processed/predictions_2026.parquet
 !data/processed/predictions_2026.csv
