@@ -13,8 +13,10 @@ def load_predictions():
 
 preds = load_predictions()
 if preds is None:
-    st.error("Run: `python run_2026_predictions.py`")
+    st.error("Run: `python run_production.py`")
     st.stop()
+
+preds = preds.sort_values("win_prob", ascending=False).reset_index(drop=True)
 
 st.title("2026 Masters — Model Predictions")
 
@@ -63,7 +65,7 @@ table["Top-10 %"] = table["Top-10 %"].map("{:.1%}".format)
 table["Top-20 %"] = table["Top-20 %"].map("{:.1%}".format)
 table["Trajectory"] = table["Trajectory"].map("{:+.2f}".format)
 
-st.dataframe(table, use_container_width=True, height=800)
+st.dataframe(table, width="stretch", height=800)
 
 with st.expander("About the model"):
     st.markdown("""
