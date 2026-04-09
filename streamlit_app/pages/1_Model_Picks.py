@@ -142,28 +142,34 @@ for tab, (label, model_col, mkt_col, edge_col) in zip(tabs, MARKETS):
 
         display = pd.DataFrame(rows)
 
-        # Style EV column
-        def style_row(row):
-            styles = [""] * len(row)
-            ev_idx = display.columns.get_loc("EV")
-            ev = row["_ev_raw"]
-            if ev > 0.05:
-                styles[ev_idx] = "background-color:#1a472a; color:#7dcea0; font-weight:bold"
-            elif ev < -0.05:
-                styles[ev_idx] = "background-color:#641e16; color:#f1948a"
-            return styles
+        # Style EV column — operate on display (which still has _ev_raw),
+        # then hide the raw column via column_config so it never renders.
+        ev_col_idx = display.columns.get_loc("EV")
 
-        show = display.drop(columns=["_ev_raw"])
+        def style_ev(val):
+            try:
+                v = float(val)
+                if v > 0.05:
+                    return "background-color:#1a472a; color:#7dcea0; font-weight:bold"
+                elif v < -0.05:
+                    return "background-color:#641e16; color:#f1948a"
+            except (TypeError, ValueError):
+                pass
+            return ""
 
-        styled = show.style.apply(style_row, axis=1)
+        styled = display.style.map(style_ev, subset=["_ev_raw"])
 
-        st.dataframe(styled, width="stretch", height=900, hide_index=True)
+        n_pos = (display["_ev_raw"] > 0.05).sum()
+        n_neg = (display["_ev_raw"] < -0.05).sum()
 
-        # Quick summary
-        if "_ev_raw" in display.columns:
-            n_pos = (display["_ev_raw"] > 0.05).sum()
-            n_neg = (display["_ev_raw"] < -0.05).sum()
-            st.caption(f"**{n_pos}** positive EV plays · **{n_neg}** fades · threshold ±0.05")
+        st.dataframe(
+            styled,
+            width="stretch",
+            height=900,
+            hide_index=True,
+            column_config={"_ev_raw": None},   # hide raw numeric col
+        )
+        st.caption(f"**{n_pos}** positive EV plays · **{n_neg}** fades · threshold ±0.05")
 
 # ── Expander ─────────────────────────────────────────────────────────────────
 with st.expander("Column guide"):
