@@ -87,4 +87,4 @@ comp = pd.DataFrame({
         "Yes" if b.get("tour_vs_augusta_divergence",0) > 0.35 else "No",
     ],
 })
-st.dataframe(comp, use_container_width=True, hide_index=True)
+st.dataframe(comp, width="stretch", hide_index=True)

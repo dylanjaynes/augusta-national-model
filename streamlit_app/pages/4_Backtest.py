@@ -36,7 +36,7 @@ data = {
     "Winner": ["Matsuyama", "Scheffler", "Rahm", "Scheffler", "McIlroy"],
     "Winner Rank": ["#48", "#17", "#25", "#2", "#16"],
 }
-st.dataframe(pd.DataFrame(data), use_container_width=True, hide_index=True)
+st.dataframe(pd.DataFrame(data), width="stretch", hide_index=True)
 
 st.markdown("---")
 st.caption("2021 S2 AUC = 0.500 due to cold start (no SG-era top-10 examples before 2021). "

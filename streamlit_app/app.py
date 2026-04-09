@@ -90,4 +90,4 @@ if "Cut %" in top10.columns:
 if "Trajectory" in top10.columns:
     top10["Trajectory"] = top10["Trajectory"].map("{:+.2f}".format)
 top10.index = range(1, len(top10) + 1)
-st.dataframe(top10, use_container_width=True)
+st.dataframe(top10, width="stretch")
