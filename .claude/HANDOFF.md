@@ -60,9 +60,16 @@ golden 1.066. Close but not perfect.
 
 ## WHAT NEEDS TO HAPPEN (priority order)
 
-### P0: Fix the date ordering
-All events need real chronological dates. Without this, rolling features are wrong
-for recent events, which poisons the model's understanding of current form.
+### P0: Fix the date ordering — PARTIALLY DONE
+Used DG schedule API (`get-schedule`) to fix dates for 2024-2026 (23,685 rows fixed).
+2024-2026 now have 0 date collisions. BUT: 2015-2023 schedule API returns 400 (only
+supports recent seasons), so those years still have some placeholder dates.
+Also: some 2025 events still have "2025-06-15" where fuzzy name matching failed.
+
+**Remaining issue:** Scheffler's model_score = 0.4488 (45th percentile!) despite being
+world #1. The rolling feature builder is STILL computing wrong values, likely because
+2015-2022 data wasn't rescrapped with round-level format and dates may be inconsistent
+with 2023+ data during the rolling window computation.
 
 ### P1: Calibrate model against closing odds
 The model should be calibrated so its win probabilities match observed hit rates
