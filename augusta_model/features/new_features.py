@@ -172,8 +172,9 @@ def add_scoring_profile(df):
 
     # Driving dominance: OTT - APP balance
     # At Augusta, long hitters have par-5 edge (13th, 15th reachable)
-    # But fairway POSITION matters for approach angles (GIR from rough = 38.3%)
-    df["driving_dominance"] = ott - app.abs()
+    # Positive = OTT-dominant (drives well but approach average/poor)
+    # Negative = APP-dominant (elite iron player)
+    df["driving_dominance"] = ott - app
 
     return df
 
@@ -405,9 +406,20 @@ def add_winner_profile_features(tour_df, field_df, target_year=2026):
         t2g = last4["sg_t2g"].dropna() if "sg_t2g" in last4.columns else pd.Series()
         d["t2g_last4_total"] = t2g.sum() if len(t2g) > 0 else 0.0
 
-        # Played recently (within last 2 events = roughly 2 weeks)
-        last_date = pt.iloc[-1].get("date", "")
-        d["played_recently"] = 1  # default — hard to compute exact weeks without dates
+        # Events since last start (0 = played in most recent event, higher = longer gap)
+        # 21/23 Masters winners played in one of the 2 weeks before Masters
+        last_date = pt.iloc[-1].get("date", None)
+        try:
+            from datetime import datetime
+            masters_approx = pd.Timestamp(f"{target_year}-04-10")
+            if last_date is not None and pd.notna(last_date):
+                ld = pd.Timestamp(last_date)
+                days_gap = (masters_approx - ld).days
+                d["played_recently"] = 1 if days_gap <= 21 else 0
+            else:
+                d["played_recently"] = 0
+        except Exception:
+            d["played_recently"] = 0
 
         rows.append(d)
 
