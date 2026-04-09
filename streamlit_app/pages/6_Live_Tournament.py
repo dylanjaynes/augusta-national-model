@@ -305,6 +305,25 @@ if live_df is not None:
     st.subheader(f"Live Leaderboard — Top {min(top_n, len(tbl))} Players")
     st.dataframe(tbl, use_container_width=True, hide_index=True)
 
+    # ── DG Edge section ─────────────────────────────────────────────────────
+    if "edge_vs_dg_top10" in display.columns:
+        st.divider()
+        st.subheader("🎯 Model Edge vs DataGolf Live Odds")
+        edge_df = display[["player_name", "current_pos", "blended_top10_prob",
+                            "dg_top10_prob", "edge_vs_dg_top10", "dg_win_prob",
+                            "blended_win_prob"]].copy()
+        edge_df = edge_df.sort_values("edge_vs_dg_top10", ascending=False)
+        edge_df["Our T10%"] = edge_df["blended_top10_prob"].apply(pct_str)
+        edge_df["DG T10%"] = edge_df["dg_top10_prob"].apply(lambda x: pct_str(x) if pd.notna(x) else "—")
+        edge_df["Edge"] = edge_df["edge_vs_dg_top10"].apply(
+            lambda x: f"+{x:.1%}" if (pd.notna(x) and x > 0) else (f"{x:.1%}" if pd.notna(x) else "—")
+        )
+        tbl2 = edge_df.head(15)[["player_name", "current_pos", "Our T10%", "DG T10%", "Edge"]].rename(
+            columns={"player_name": "Player", "current_pos": "Pos"}
+        )
+        st.dataframe(tbl2, use_container_width=True, hide_index=True)
+        st.caption("Positive edge = our model sees more top-10 probability than DG's live model.")
+
     # ── Movers section ──────────────────────────────────────────────────────
     if "rank_change" in display.columns:
         st.divider()
