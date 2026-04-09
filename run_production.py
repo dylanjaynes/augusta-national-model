@@ -77,9 +77,28 @@ XGB_S1 = {
 XGB_S2 = {
     "n_estimators": 300, "learning_rate": 0.03, "max_depth": 3,
     "subsample": 0.8, "colsample_bytree": 0.5, "min_child_weight": 8,
-    "reg_alpha": 1.0, "reg_lambda": 3.0,
+    "reg_alpha": 2.0, "reg_lambda": 5.0,  # stronger regularisation — suppress Augusta history overfitting
     "objective": "binary:logistic", "eval_metric": "auc", "random_state": 42,
 }
+
+# S1/S2 blend weight for BACKTEST (S1 as current-form check, 15% weight).
+# Lower weight because S1 has date-ordering artifacts for some players — use it
+# as a gentle correction, not a dominant signal.
+BLEND_S2_WEIGHT_BACKTEST = 0.85  # 85% S2, 15% S1 in backtest
+
+# For 2026 PREDICTIONS we use dg_rank as the current-form signal instead of S1.
+# dg_rank is fresh, derived from current-season performance, and immune to the
+# date-ordering bug that corrupts rolling SG computation for some players.
+# exp(-0.03 * (rank-1)) → rank1=1.0, rank44=0.27, rank100=0.05, rank200=0.002
+BLEND_S2_WEIGHT_PRED = 0.70   # 70% S2, 30% rank-form signal
+RANK_DECAY = 0.03              # exponential decay rate per rank position
+
+# Stale player cap: hard ceiling on the BLENDED skill score before MC.
+# Applied AFTER blend so the rank-form signal cannot lift stale players above the cap.
+# Threshold raised to 200 so legitimate LIV/fringe players (rank 100-200) compete normally.
+# Fred Couples/Vijay Singh type invitees are unranked (NaN) or rank 300+ → always stale.
+STALE_RANK_THRESHOLD = 200
+STALE_CAP = 0.04  # maps to ~1-2% T10 in 83-player field — right order of magnitude for past-champion honorary invitees
 
 # MC parameters tuned for realistic golf variance
 N_SIMS = 50000
@@ -280,7 +299,12 @@ def build_rolling_features(df, fs_lookup=None):
 # ═══════════════════════════════════════════════════════════
 
 def build_augusta_features_for_player(pn, year, unified, rounds_df):
-    """Build Augusta-specific features for one player-year. Strict temporal cutoff."""
+    """Build Augusta-specific features for one player-year. Strict temporal cutoff.
+
+    Recency decay (0.80 per year) is applied to competitive rounds, cut rate,
+    and top-10 rate so that 2019 Augusta history counts much less than 2024.
+    Experience tier still uses raw counts (experience is binary, not decayed).
+    """
     prior = unified[(unified["player_name"] == pn) & (unified["season"] < year)]
     f = {}
     n = len(prior)
@@ -292,18 +316,26 @@ def build_augusta_features_for_player(pn, year, unified, rounds_df):
         f["player_name"] = pn
         return f
 
+    RECENCY_DECAY = 0.80  # 20% depreciation per year of Augusta history
+
     def _comp_rounds(row):
         cnt = sum(1 for c in ["r1_score", "r2_score", "r3_score", "r4_score"]
                   if pd.notna(row.get(c)))
         return cnt if cnt > 0 else (4 if row.get("made_cut") == 1 else 2)
 
-    comp_rounds = sum(_comp_rounds(r) for _, r in prior.iterrows())
+    # Raw count drives experience tier (experience doesn't decay — you played or you didn't)
+    raw_comp_rounds = sum(_comp_rounds(r) for _, r in prior.iterrows())
+    # Decayed count is the actual feature value (recent play counts more)
+    comp_rounds = sum(
+        _comp_rounds(r) * (RECENCY_DECAY ** max(0, year - int(r["season"])))
+        for _, r in prior.iterrows()
+    )
     prev_yr = prior[prior["season"] == year - 1]
     cut_prev = int(len(prev_yr) > 0 and prev_yr.iloc[0].get("made_cut") == 1)
-    tier = (0 if comp_rounds == 0 else
-            (1 if comp_rounds <= 7 else
-             (2 if comp_rounds <= 19 else
-              (3 if comp_rounds <= 35 else 4))))
+    tier = (0 if raw_comp_rounds == 0 else
+            (1 if raw_comp_rounds <= 7 else
+             (2 if raw_comp_rounds <= 19 else
+              (3 if raw_comp_rounds <= 35 else 4))))
 
     # Scoring trajectory
     prior_cut = prior[prior["made_cut"] == 1]
@@ -324,10 +356,22 @@ def build_augusta_features_for_player(pn, year, unified, rounds_df):
     vf_good = vf_good[vf_good < 999]
     best_rec = vf_good.min() if len(vf_good) > 0 else 91
 
+    # Recency-weighted cut rate and top-10 rate
     cuts = prior["made_cut"].dropna()
-    cut_rate = cuts.mean() if len(cuts) > 0 else 0
+    if len(cuts) > 0:
+        cut_decay = np.array([RECENCY_DECAY ** max(0, year - int(prior.loc[i, "season"]))
+                              for i in cuts.index])
+        cut_rate = float(np.average(cuts.values, weights=cut_decay))
+    else:
+        cut_rate = 0
     fn = prior["finish_num"].dropna()
-    t10_rate = (fn <= 10).mean() if len(fn) > 0 else 0
+    if len(fn) > 0:
+        t10 = (fn <= 10).astype(float)
+        t10_decay = np.array([RECENCY_DECAY ** max(0, year - int(prior.loc[i, "season"]))
+                              for i in fn.index])
+        t10_rate = float(np.average(t10.values, weights=t10_decay))
+    else:
+        t10_rate = 0
     best_f = fn[fn < 999].min() if (fn < 999).any() else 91
 
     svf = prior["score_vs_field"].dropna()
@@ -512,12 +556,21 @@ def run_backtest(tour_feat, unified, features, rounds_df):
         s2_raw = s2m.predict_proba(bdf[S2F])[:, 1]
         bdf["s2_top10"] = s2_raw
 
-        # Calibrated metrics using unified MC
+        # Stage 1 predictions for S1/S2 blend (current-form anchor)
+        s1_pred = s1.predict(bdf[ROLL].fillna(0).values)
+        bdf["model_score"] = s1_pred
+
+        # Calibrated metrics using unified MC with light S1 blend (15% weight)
+        # Lower weight than prediction run because S1 has date-ordering artifacts
+        # for some players — using it as a gentle correction, not dominant signal.
         tiers = bdf["augusta_experience_tier"].fillna(0).values
         cal = calibrate_full_pipeline(
             s2_raw, tiers,
             n_sims=N_SIMS, noise_std=MC_NOISE,
             target_pred_std=MC_TPRED, seed=SEED,
+            s1_scores=s1_pred,
+            blend_weight=BLEND_S2_WEIGHT_BACKTEST,  # 85% S2, 15% S1
+            # No stale_mask in backtest — dg_rank not available for historical years
         )
         bdf["cal_top10"] = cal["top10_prob"].values
         bdf["cal_win"] = cal["win_prob"].values
@@ -668,7 +721,25 @@ def predict_2026(tour_feat, unified, features, rounds_df, s1_model):
             fdf[c] = 0.0
     s2_raw = s2m.predict_proba(fdf[S2F])[:, 1]
     fdf["stage2_prob_raw"] = s2_raw
-    fdf["model_score"] = s1_model.predict(fdf[ROLL].values)
+
+    # Stage 1 predictions (stored for reference, NOT used as blend signal — S1 is
+    # unreliable for some players due to date-ordering artifacts in rolling features).
+    s1_pred = s1_model.predict(fdf[ROLL].fillna(0).values)
+    fdf["model_score"] = s1_pred
+
+    # ── Current-form signal: dg_rank (fresh, date-ordering immune) ──
+    # S1 is broken for Scheffler (model_score=0.45, 45th pct despite being world #1)
+    # due to rolling feature date-ordering. Use dg_rank instead.
+    # exp(-RANK_DECAY * (rank-1)) → rank1=1.0, rank10=0.76, rank44=0.27, rank100=0.05
+    dg_rank = pd.to_numeric(fdf.get("dg_rank", pd.Series(dtype=float)), errors="coerce")
+    rank_form = np.exp(-RANK_DECAY * (dg_rank.fillna(300).values - 1))
+    # Pass as (1 - rank_form) so that calibrate_full_pipeline's inversion restores rank_form
+    rank_form_input = 1.0 - rank_form
+
+    # Stale player mask: dg_rank > STALE_RANK_THRESHOLD or unranked
+    stale_mask = (dg_rank > STALE_RANK_THRESHOLD) | dg_rank.isna()
+    n_stale = stale_mask.sum()
+    print(f"  Stale players (dg_rank > {STALE_RANK_THRESHOLD} or unranked): {n_stale}")
 
     # ── Platt calibration from backtest data ──
     bt_path = PROCESSED / "backtest_results.parquet"
@@ -684,7 +755,7 @@ def predict_2026(tour_feat, unified, features, rounds_df, s1_model):
             print(f"  Platt params: a={platt_params[0]:.4f}, b={platt_params[1]:.4f} "
                   f"(from {len(valid)} backtest rows)")
 
-    # ── Full calibration pipeline ──
+    # ── Full calibration pipeline: S2 + rank-form blend + stale cap ──
     tiers = fdf["augusta_experience_tier"].fillna(0).values
     cal = calibrate_full_pipeline(
         s2_raw, tiers,
@@ -692,6 +763,10 @@ def predict_2026(tour_feat, unified, features, rounds_df, s1_model):
         n_sims=N_SIMS, noise_std=MC_NOISE,
         target_pred_std=MC_TPRED, seed=SEED,
         field_size=len(fdf),
+        s1_scores=rank_form_input,   # (1-rank_form) — inverted back inside pipeline
+        blend_weight=BLEND_S2_WEIGHT_PRED,
+        stale_mask=stale_mask.values,
+        stale_cap=STALE_CAP,
     )
 
     fdf["win_prob"] = cal["win_prob"].values
@@ -718,9 +793,24 @@ def predict_2026(tour_feat, unified, features, rounds_df, s1_model):
         fdf["kelly_edge_win"] = np.where(dk_win > 0, (fdf["win_prob"] - dk_win) / dk_win, 0)
         fdf["kelly_edge_top10"] = np.where(dk_t10 > 0, (fdf["top10_prob"] - dk_t10) / dk_t10, 0)
 
+    # ── Post-MC hard cap for honorary invitees (unranked past champions) ──
+    # MC noise gives every player ~4-6% T10 even at zero skill due to golf variance.
+    # Unranked players (Fred Couples, Vijay Singh, etc.) are not real contenders —
+    # hard-cap them post-MC so they don't pollute the value plays table.
+    unranked_mask = dg_rank.isna().values
+    if unranked_mask.any():
+        # Reindex mask to match fdf after potential row drops/resets
+        unranked_idx = [i for i, m in zip(fdf.index, unranked_mask) if m]
+        fdf.loc[unranked_idx, "win_prob"] = np.minimum(fdf.loc[unranked_idx, "win_prob"], 0.002)
+        fdf.loc[unranked_idx, "top5_prob"] = np.minimum(fdf.loc[unranked_idx, "top5_prob"], 0.005)
+        fdf.loc[unranked_idx, "top10_prob"] = np.minimum(fdf.loc[unranked_idx, "top10_prob"], 0.010)
+        fdf.loc[unranked_idx, "top20_prob"] = np.minimum(fdf.loc[unranked_idx, "top20_prob"], 0.020)
+        n_capped = int(unranked_mask.sum())
+        print(f"  Honorary invitees (unranked) hard-capped: {n_capped} players → max T10=1%")
+
     fdf = fdf.sort_values("top10_prob", ascending=False).reset_index(drop=True)
 
-    # ─��� Print results ──
+    # ── Print results ──
     print(f"\n  {'#':<3} {'Player':<25} {'Win%':>6} {'T5%':>6} {'T10%':>6} {'T20%':>6} "
           f"{'Tier':>4} {'S2raw':>6}")
     print("  " + "-" * 80)
@@ -734,11 +824,15 @@ def predict_2026(tour_feat, unified, features, rounds_df, s1_model):
     print(f"\n  Sums: win={fdf['win_prob'].sum():.3f} top5={fdf['top5_prob'].sum():.1f} "
           f"top10={fdf['top10_prob'].sum():.1f} top20={fdf['top20_prob'].sum():.1f}")
 
-    # Value plays
+    # Value plays — exclude unranked/stale honorary invitees (not real betting targets)
     if "dk_fair_prob_top10" in fdf.columns:
-        print(f"\n  TOP VALUE PLAYS (model > market for top-10):")
-        val = fdf[fdf.get("kelly_edge_top10", pd.Series(0)) > 0].nlargest(5, "kelly_edge_top10")
-        for _, r in val.iterrows():
+        active = fdf[
+            fdf.get("kelly_edge_top10", pd.Series(0)) > 0
+        ].copy()
+        # Filter to active/ranked players only (skip retired past-champion invitees)
+        active_ranked = active[active["dg_rank"].notna() & (active["dg_rank"] <= STALE_RANK_THRESHOLD)]
+        print(f"\n  TOP VALUE PLAYS (model > market for top-10, ranked players only):")
+        for _, r in active_ranked.nlargest(8, "kelly_edge_top10").iterrows():
             print(f"    {r['player_name']:<25} model={r['top10_prob']:.1%} "
                   f"mkt={r['dk_fair_prob_top10']:.1%} edge={r['kelly_edge_top10']:+.0%}")
 

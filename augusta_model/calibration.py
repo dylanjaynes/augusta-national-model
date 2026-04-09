@@ -97,11 +97,11 @@ def apply_debutant_adjustment(probs, experience_tiers):
     adjusted = np.array(probs, dtype=float)
 
     # Shrinkage weights: how much to trust the prior vs the model
-    # Tier 0: 35% prior, 65% model (no Augusta features to learn from)
-    # Tier 1: 12% prior, 88% model (some data)
-    # Tier 2+: 0% prior, 100% model (enough data, trust model)
-    shrinkage = np.where(tiers == 0, 0.35,
-                np.where(tiers == 1, 0.12,
+    # Tier 0: 45% prior, 55% model (debutants have no Augusta signal — shrink harder)
+    # Tier 1: 15% prior, 85% model (1-2 appearances — some data but limited)
+    # Tier 2+: 0% prior, 100% model (enough Augusta data, trust model)
+    shrinkage = np.where(tiers == 0, 0.45,
+                np.where(tiers == 1, 0.15,
                          0.0))
 
     tier_priors = np.array([TIER_BASE_RATES.get(int(t), OVERALL_BASE_RATE) for t in tiers])
@@ -191,8 +191,10 @@ def enforce_monotonic(df, win_col="win_prob", top5_col="top5_prob",
 
 def calibrate_full_pipeline(s2_raw, experience_tiers, platt_params=None,
                             n_sims=50000, noise_std=0.20,
-                            target_pred_std=0.05, seed=42, field_size=None):
-    """Full calibration pipeline: S2 → Platt → debutant adj → unified MC.
+                            target_pred_std=0.05, seed=42, field_size=None,
+                            s1_scores=None, blend_weight=0.65, stale_mask=None,
+                            stale_cap=0.18):
+    """Full calibration pipeline: S2 → Platt → debutant adj → S1 blend → MC.
 
     All markets (win/top5/top10/top20) flow from the same S2-based skill ranking
     through a single MC simulation. This ensures:
@@ -211,6 +213,14 @@ def calibrate_full_pipeline(s2_raw, experience_tiers, platt_params=None,
         platt_params: (a, b) from fit_platt_calibrator, or None for defaults
         n_sims, noise_std, target_pred_std, seed: MC parameters
         field_size: number of players (defaults to len(s2_raw))
+        s1_scores: optional array of S1 finish_pct predictions (lower = better).
+            When provided, blended as: skill = blend_weight*S2 + (1-blend_weight)*S1_norm.
+            S1 anchors the ranking to current tour form, preventing stale Augusta
+            history from dominating (e.g. Patrick Reed, Vijay Singh).
+        blend_weight: weight for S2 in blend (default 0.65). Complement goes to S1.
+        stale_mask: boolean array where True = stale player (e.g. dg_rank > 100).
+            These players have their calibrated S2 prob capped at stale_cap before MC.
+        stale_cap: max calibrated prob for stale players (default 0.18).
 
     Returns:
         DataFrame with calibrated probabilities for all markets
@@ -225,7 +235,31 @@ def calibrate_full_pipeline(s2_raw, experience_tiers, platt_params=None,
     # Step 2: Debutant adjustment (shrink toward tier prior)
     adj_probs = apply_debutant_adjustment(cal_probs, experience_tiers)
 
-    # Step 3: Unified MC — all markets from one simulation
+    # Step 3 (new): Blend current-form signal into the MC skill input.
+    # s1_scores can be S1 finish_pct predictions (lower=better, inverted here)
+    # OR pre-inverted rank-decay scores (higher=better — pass 1-raw_score as s1_scores).
+    # The inversion (1-s1) is applied unconditionally; callers must pre-invert
+    # rank-decay signals if they are already "higher=better" before passing.
+    # For rank-decay: pass (1 - rank_score) so inversion restores rank_score.
+    if s1_scores is not None:
+        s1 = np.asarray(s1_scores, dtype=float)
+        s1_inv = 1.0 - s1  # invert: finish_pct(low=good)→high=good; (1-rankform)→rankform
+        s1_min, s1_max = s1_inv.min(), s1_inv.max()
+        if s1_max > s1_min:
+            s1_norm = (s1_inv - s1_min) / (s1_max - s1_min)
+        else:
+            s1_norm = np.full(n, 0.5)
+        # Blend: S2 provides Augusta-specific signal, form signal anchors to current reality
+        adj_probs = blend_weight * adj_probs + (1.0 - blend_weight) * s1_norm
+
+    # Step 4 (new): Stale player cap — hard ceiling AFTER blend.
+    # Applied after blend so that the form signal cannot lift stale players above the cap.
+    # Prevents Augusta-history inflation for retired/low-ranked invitees.
+    if stale_mask is not None:
+        stale = np.asarray(stale_mask, dtype=bool)
+        adj_probs = np.where(stale, np.minimum(adj_probs, stale_cap), adj_probs)
+
+    # Step 5: Unified MC — all markets from one simulation
     # MC naturally produces correct sums: win→1.0, top5→5.0, top10→10.0, top20→20.0
     mc = run_unified_mc(adj_probs, n_sims=n_sims, noise_std=noise_std,
                         target_pred_std=target_pred_std, seed=seed)
