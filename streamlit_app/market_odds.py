@@ -89,11 +89,6 @@ def _fetch_odds_api_win():
             name = _normalize(o["name"])
             probs[name] = _american_to_prob(o["price"])
 
-        # Remove vig: normalize so probabilities sum to 1
-        total = sum(probs.values())
-        if total > 0:
-            probs = {k: v / total for k, v in probs.items()}
-
         return probs
     except Exception:
         return {}

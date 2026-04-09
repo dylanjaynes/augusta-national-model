@@ -128,16 +128,17 @@ for tab, (label, model_col, mkt_col, edge_col) in zip(tabs, MARKETS):
                 flags.append("📉")
 
             rows.append({
-                "#":          i + 1,
-                "Player":     name,
-                "My Odds":    fmt_pct(model_p),
-                "Book Odds":  fmt_pct(mkt_p),
-                "Book (Amer)":prob_to_american(mkt_p),
-                "EV":         fmt_ev(ev),
-                "_ev_raw":    float(ev) if pd.notna(ev) else 0.0,
-                "Tier":       tier_map.get(int(row.get("augusta_experience_tier", 2)), "—"),
-                "Cut '25":    "✓" if row.get("augusta_made_cut_prev_year") == 1 else "—",
-                "Flags":      " ".join(flags),
+                "#":           i + 1,
+                "Player":      name,
+                "My Odds":     fmt_pct(model_p),
+                "My (Amer)":   prob_to_american(model_p),
+                "Book Odds":   fmt_pct(mkt_p),
+                "Book (Amer)": prob_to_american(mkt_p),
+                "EV":          fmt_ev(ev),
+                "_ev_raw":     float(ev) if pd.notna(ev) else 0.0,
+                "Tier":        tier_map.get(int(row.get("augusta_experience_tier", 2)), "—"),
+                "Cut '25":     "✓" if row.get("augusta_made_cut_prev_year") == 1 else "—",
+                "Flags":       " ".join(flags),
             })
 
         display = pd.DataFrame(rows)
@@ -177,7 +178,8 @@ with st.expander("Column guide"):
 | Column | Meaning |
 |--------|---------|
 | **My Odds** | Model implied probability (%) |
-| **Book Odds** | Market implied % (DataGolf consensus, no-vig) |
+| **My (Amer)** | Model probability as American odds |
+| **Book Odds** | Book implied % (with vig — the number you actually need to beat) |
 | **Book (Amer)** | Same expressed as American odds |
 | **EV** | (Model − Book) / Book. Green = model sees value vs book |
 | **Tier** | Augusta experience: 🆕 Debut → Deep Vet |
