@@ -254,8 +254,7 @@ if live_df is not None:
     display = display.sort_values("blended_win_prob", ascending=False).reset_index(drop=True)
     display["live_rank"] = range(1, len(display) + 1)
 
-    # ── Build main display table ──────────────────────────────────────────────
-    # Core columns: Player | Score | Thru | Model Win% | Model Odds | Book Win% | Book Odds | Edge
+    # ── Pre-compute all formatted columns ────────────────────────────────────
     display["score_str"] = display["current_score_to_par"].apply(score_str) \
         if "current_score_to_par" in display.columns else "—"
     display["holes_str"] = display["holes_completed"].apply(
@@ -264,79 +263,90 @@ if live_df is not None:
 
     display["model_win_str"] = display["blended_win_prob"].apply(pct_str)
 
-    # Model American odds — stored as integers in CSV (e.g. 490), need "+" prefix
-    if "model_american_win" in display.columns:
-        display["model_odds_str"] = display["model_american_win"].apply(format_american)
-    else:
-        display["model_odds_str"] = "—"
+    # Model American odds — stored as integers in CSV (e.g. 490 → "+490")
+    display["model_odds_str"] = display["model_american_win"].apply(format_american) \
+        if "model_american_win" in display.columns else "—"
 
-    # Book win% and odds from The Odds API (DK/FD/MGM)
     has_book = "book_implied_win" in display.columns and display["book_implied_win"].notna().any()
     if has_book:
         display["book_win_str"] = display["book_implied_win"].apply(pct_str)
         display["book_odds_str"] = display["book_american_win"].apply(format_american)
 
-    # Edge: our win prob minus book implied prob
-    if "live_edge_vs_book" in display.columns:
+    has_edge = "live_edge_vs_book" in display.columns
+    if has_edge:
         display["edge_str"] = display["live_edge_vs_book"].apply(
             lambda x: f"{x:+.1%}" if pd.notna(x) else "—"
         )
 
-    table_cols = {
-        "live_rank": "Rank",
-        "player_name": "Player",
-        "score_str": "Score",
-        "holes_str": "Thru",
-        "model_win_str": "Model Win%",
-        "model_odds_str": "Model Odds",
-    }
-    if has_book:
-        table_cols["book_win_str"] = "Book Win%"
-        table_cols["book_odds_str"] = "Book Odds"
-    if "edge_str" in display.columns:
-        table_cols["edge_str"] = "Edge"
-
-    # Optional columns
-    if "Rank Change" in show_cols and "rank_change" in display.columns:
+    if "rank_change" in display.columns:
         display["move_str"] = display["rank_change"].apply(movement_arrow)
-        table_cols["move_str"] = "Move"
 
+    # ── Main table: mobile-friendly (5-6 columns max) ────────────────────────
+    # Player | Score | Thru | Win% | Model Odds | Edge
+    main_cols = {"player_name": "Player", "score_str": "Score", "holes_str": "Thru",
+                 "model_win_str": "Win%", "model_odds_str": "Model Odds"}
+    if has_edge:
+        main_cols["edge_str"] = "Edge"
+    if "Rank Change" in show_cols and "move_str" in display.columns:
+        main_cols["move_str"] = "Move"
+
+    avail_main = [c for c in main_cols if c in display.columns]
+    tbl_main = display.head(top_n)[avail_main].rename(columns=main_cols)
+
+    book_note = "Book odds: best of DraftKings/FanDuel/BetMGM. " if has_book else ""
+    st.subheader(f"Live Leaderboard — Top {min(top_n, len(tbl_main))} Players")
+    st.caption(f"{book_note}Edge = Model Win% minus Book implied probability.")
+    st.dataframe(tbl_main, use_container_width=True, hide_index=True)
+
+    # ── Full odds table: all columns (scrollable on desktop/tablet) ───────────
+    if has_book:
+        st.subheader("📋 Full Odds Comparison")
+        odds_cols = {"player_name": "Player", "score_str": "Score",
+                     "model_win_str": "Model Win%", "model_odds_str": "Model Odds",
+                     "book_win_str": "Book Win%", "book_odds_str": "Book Odds"}
+        if has_edge:
+            odds_cols["edge_str"] = "Edge"
+        avail_odds = [c for c in odds_cols if c in display.columns]
+        tbl_odds = display.head(top_n)[avail_odds].rename(columns=odds_cols)
+        st.dataframe(tbl_odds, use_container_width=True, hide_index=True)
+
+    # ── Optional extra columns section ───────────────────────────────────────
+    extra_cols = {}
     if "Win Edge vs Market" in show_cols:
         if "win_edge_vs_market" in display.columns:
             display["market_edge_str"] = display["win_edge_vs_market"].apply(
                 lambda x: f"{x:+.1%}" if pd.notna(x) else "—"
             )
-            table_cols["market_edge_str"] = "Pre-Mkt Edge"
         elif "market_win" in display.columns:
             display["win_edge_vs_market"] = display["blended_win_prob"] - display["market_win"].fillna(0)
             display["market_edge_str"] = display["win_edge_vs_market"].apply(
                 lambda x: f"{x:+.1%}" if pd.notna(x) else "—"
             )
-            table_cols["market_edge_str"] = "Pre-Mkt Edge"
+        if "market_edge_str" in display.columns:
+            extra_cols["market_edge_str"] = "Pre-Mkt Edge"
 
     if "Confidence" in show_cols and "confidence_weight" in display.columns:
         display["conf_badge"] = display["confidence_weight"].apply(
             lambda x: confidence_badge(float(x)) if pd.notna(x) else "—"
         )
-        table_cols["conf_badge"] = "Confidence"
+        extra_cols["conf_badge"] = "Confidence"
 
     if "Amen Corner" in show_cols and "amen_corner_score" in display.columns:
         display["amen_str"] = display["amen_corner_score"].apply(score_str)
-        table_cols["amen_str"] = "Amen (11-13)"
+        extra_cols["amen_str"] = "Amen (11-13)"
 
     if "Par 5 Scoring" in show_cols and "par5_scoring" in display.columns:
         display["par5_str"] = display["par5_scoring"].apply(
             lambda x: f"{x:+.1f}" if pd.notna(x) and x != 0 else "—"
         )
-        table_cols["par5_str"] = "Par5 Avg"
+        extra_cols["par5_str"] = "Par5 Avg"
 
-    avail_cols = [c for c in table_cols if c in display.columns]
-    tbl = display.head(top_n)[avail_cols].rename(columns=table_cols)
-
-    book_note = " · Book odds: best of DraftKings/FanDuel/BetMGM" if has_book else ""
-    st.subheader(f"Live Leaderboard — Top {min(top_n, len(tbl))} Players")
-    st.caption(f"Edge = Model Win% minus Book implied probability{book_note}")
-    st.dataframe(tbl, use_container_width=True, hide_index=True)
+    if extra_cols:
+        st.subheader("📊 Extra Columns")
+        extra_cols = {"player_name": "Player", "score_str": "Score", **extra_cols}
+        avail_extra = [c for c in extra_cols if c in display.columns]
+        tbl_extra = display.head(top_n)[avail_extra].rename(columns=extra_cols)
+        st.dataframe(tbl_extra, use_container_width=True, hide_index=True)
 
     # ── Sportsbook edge detail ───────────────────────────────────────────────
     if has_book and "live_edge_vs_book" in display.columns:
