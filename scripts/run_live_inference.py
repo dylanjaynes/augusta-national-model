@@ -495,69 +495,9 @@ def apply_position_correction(
     current_round: int = 1,
 ) -> pd.DataFrame:
     """
-    Shift win probabilities to reflect current leaderboard position.
-
-    The pre-tournament model anchors win% to pre-tournament skill rankings via a
-    fixed win/top10 ratio. After a complete round, leaders who outperformed their
-    seed (Burns at -5 from a +800 pre-tourney price) end up with unrealistically
-    low win probabilities.
-
-    This blends in a Boltzmann-weighted position component:
-      - k=0.7: each stroke better = exp(0.7) ≈ 2× more likely to win
-      - Weight ramp (pre-tournament skill still dominates early):
-          After R1 (25%): pos_weight = 0.30  → position nudges but skill leads
-          After R2 (50%): pos_weight = 0.52  → roughly even
-          After R3 (75%): pos_weight = 0.74  → position takes over
-          After R4 done:  pos_weight = 0.85  (cap)
-      Formula: min(0.85, 0.08 + tournament_pct * 0.88)
-
-    Only activates when median holes_completed ≥ 15 (full round nearly done).
+    Retired — position is now handled by the progressive DG blend in run_once().
+    Kept as a no-op so call sites don't need updating.
     """
-    if "current_score_to_par" not in results.columns:
-        return results
-
-    results = results.copy()
-
-    # Guard: skip if players haven't finished a full round
-    if "holes_completed" in results.columns:
-        median_holes = results["holes_completed"].median()
-    else:
-        median_holes = 18.0  # Assume full round if column absent
-
-    if median_holes < 15:
-        print(f"  Skipping position correction: median holes={median_holes:.1f} < 15")
-        return results
-
-    # Rounds complete = prior complete rounds + fraction of current round done
-    rounds_complete = (current_round - 1) + (median_holes / 18.0)
-    tournament_pct = rounds_complete / 4.0  # 0.25 after R1, 0.50 after R2, etc.
-
-    # Boltzmann weights: exp(-score * k) → lower score = higher weight
-    scores = results["current_score_to_par"].fillna(0).values.astype(float)
-    k = 0.7
-    win_weights = np.exp(-scores * k)
-    pos_win_prob = win_weights / win_weights.sum()
-
-    # Position weight: 0.30 after R1, 0.52 after R2, 0.74 after R3, 0.85 cap
-    pos_weight = min(0.85, 0.08 + tournament_pct * 0.88)
-    print(
-        f"  Position correction: pos_weight={pos_weight:.2f}, k={k}, "
-        f"rounds_complete={rounds_complete:.1f} ({tournament_pct:.0%} of tournament)"
-    )
-
-    # Normalize current model win probs
-    model_win = results["blended_win_prob"].values.astype(float)
-    model_win_norm = model_win / max(model_win.sum(), 1e-8)
-
-    # Blend and renormalize
-    blended = pos_weight * pos_win_prob + (1 - pos_weight) * model_win_norm
-    results["blended_win_prob"] = blended / blended.sum()
-
-    # Refresh American odds and rank
-    results["model_american_win"] = results["blended_win_prob"].apply(prob_to_american)
-    results = results.sort_values("blended_win_prob", ascending=False).reset_index(drop=True)
-    results["live_rank"] = range(1, len(results) + 1)
-
     return results
 
 
@@ -648,32 +588,70 @@ def main():
                 on="player_name",
                 how="left",
             )
-            # Edge vs DG model on top-10
-            results["edge_vs_dg_top10"] = (
-                results["blended_top10_prob"] - results["dg_top10_prob"].fillna(0)
-            )
 
             # ── Cut-probability filter ────────────────────────────────────────
-            # Players unlikely to make the cut can't win. Scale our win/T10
-            # probabilities by DG's make-cut probability, then renormalise.
             if "dg_make_cut" in results.columns:
                 cut_w = results["dg_make_cut"].fillna(1.0).clip(0, 1)
                 results["blended_win_prob"]   = results["blended_win_prob"]   * cut_w
                 results["blended_top10_prob"] = results["blended_top10_prob"] * cut_w
-                # Renormalise so win sums to 1 and T10 sums to 10
-                win_sum = results["blended_win_prob"].sum()
-                t10_sum = results["blended_top10_prob"].sum()
-                if win_sum > 0:
-                    results["blended_win_prob"] = results["blended_win_prob"] / win_sum
-                if t10_sum > 0:
-                    results["blended_top10_prob"] = results["blended_top10_prob"] * (10.0 / t10_sum)
-                # Recompute American odds after cut adjustment
-                results["model_american_win"]   = results["blended_win_prob"].apply(prob_to_american)
-                results["model_american_top10"] = (results["blended_top10_prob"] / 10).apply(prob_to_american)
-                # Re-sort by win prob and reassign rank
-                results = results.sort_values("blended_win_prob", ascending=False).reset_index(drop=True)
-                results["live_rank"] = range(1, len(results) + 1)
                 print(f"  Cut filter applied — {(cut_w < 0.5).sum()} players below 50% make-cut scaled down")
+
+            # ── Progressive round-based DG blend ─────────────────────────────
+            # After more holes are complete the actual leaderboard position
+            # dominates. Hand off progressively more weight to DG's live model.
+            #
+            # Holes complete → DG blend weight:
+            #   R1 in progress (<18 done):  20%
+            #   R1 complete (18):           40%
+            #   R2 in progress (18-36):     55%
+            #   R2 complete (36):           70%   ← ~here now
+            #   R3 in progress (36-54):     80%
+            #   R3 complete (54):           85%
+            #   R4 in progress (54-72):     90%
+            median_thru = results["thru"].fillna(0).median() if "thru" in results.columns else 0
+            total_holes = (current_round - 1) * 18 + median_thru
+            if total_holes <= 9:
+                dg_blend = 0.20
+            elif total_holes <= 18:
+                dg_blend = 0.20 + 0.20 * (total_holes / 18)        # 20→40% through R1
+            elif total_holes <= 36:
+                dg_blend = 0.40 + 0.30 * ((total_holes - 18) / 18) # 40→70% through R2
+            elif total_holes <= 54:
+                dg_blend = 0.70 + 0.15 * ((total_holes - 36) / 18) # 70→85% through R3
+            else:
+                dg_blend = 0.85 + 0.05 * ((total_holes - 54) / 18) # 85→90% through R4
+            dg_blend = min(dg_blend, 0.90)
+            our_blend = 1.0 - dg_blend
+            print(f"  Round blend: {total_holes:.0f} total holes → {dg_blend:.0%} DG / {our_blend:.0%} our model")
+
+            if "dg_win_prob" in results.columns:
+                dg_win  = results["dg_win_prob"].fillna(results["blended_win_prob"])
+                dg_t10  = results["dg_top10_prob"].fillna(results["blended_top10_prob"] / 10) * 10
+
+                results["blended_win_prob"]   = our_blend * results["blended_win_prob"]   + dg_blend * dg_win
+                results["blended_top10_prob"] = our_blend * results["blended_top10_prob"] + dg_blend * dg_t10
+
+            # Renormalise
+            win_sum = results["blended_win_prob"].sum()
+            t10_sum = results["blended_top10_prob"].sum()
+            if win_sum > 0:
+                results["blended_win_prob"] = results["blended_win_prob"] / win_sum
+            if t10_sum > 0:
+                results["blended_top10_prob"] = results["blended_top10_prob"] * (10.0 / t10_sum)
+
+            # Use DG cumulative score as the display score (correct across rounds)
+            if "current_score" in results.columns:
+                results["current_score_to_par"] = results["current_score"]
+
+            # Edge: where our model disagrees with DG (positive = we like them more)
+            results["edge_vs_dg_win"] = results["blended_win_prob"] - results["dg_win_prob"].fillna(0)
+            results["edge_vs_dg_top10"] = results["blended_top10_prob"] - results["dg_top10_prob"].fillna(0) * 10
+
+            # Recompute American odds and re-sort
+            results["model_american_win"]   = results["blended_win_prob"].apply(prob_to_american)
+            results["model_american_top10"] = (results["blended_top10_prob"] / 10).apply(prob_to_american)
+            results = results.sort_values("blended_win_prob", ascending=False).reset_index(drop=True)
+            results["live_rank"] = range(1, len(results) + 1)
 
         # Fetch and merge live book odds
         print("  Fetching live book odds...")
