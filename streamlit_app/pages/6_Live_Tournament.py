@@ -239,9 +239,9 @@ if live_df is not None:
         if col not in display.columns:
             display[col] = np.nan
 
-    if "live_rank" not in display.columns or display["live_rank"].isna().all():
-        display = display.sort_values("blended_top10_prob", ascending=False).reset_index(drop=True)
-        display["live_rank"] = range(1, len(display) + 1)
+    # Always sort by win probability (descending) and reassign ranks
+    display = display.sort_values("blended_win_prob", ascending=False).reset_index(drop=True)
+    display["live_rank"] = range(1, len(display) + 1)
 
     # Build display table
     table_cols = {
