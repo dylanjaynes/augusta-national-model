@@ -255,53 +255,31 @@ if live_df is not None:
     display["live_rank"] = range(1, len(display) + 1)
 
     # ── Single unified table ──────────────────────────────────────────────────
-    # Columns: Player (index) | Score | M Win% | M Odds | Bk Odds | M T10% | DG T10% | Edge
-    # Abbreviated headers + column_config widths keep it readable on mobile.
+    # Player | Score | M Win% | M Odds | Bk Odds | M T10% | DG T10% | Edge
+    # Sorted by M Win% descending. Simple st.dataframe — no column_config tricks.
 
-    has_book = "book_american_win" in display.columns and display["book_american_win"].notna().any()
-    has_dg   = "dg_top10_prob" in display.columns and display["dg_top10_prob"].notna().any()
-    has_edge = "live_edge_vs_book" in display.columns
+    rows = display.head(top_n).copy()
 
-    tbl = pd.DataFrame(index=display.head(top_n)["player_name"])
-    tbl.index.name = "Player"
+    tbl = pd.DataFrame()
+    tbl["Player"]  = rows["player_name"].values
+    tbl["Score"]   = rows["current_score_to_par"].apply(score_str).values \
+                     if "current_score_to_par" in rows.columns else "—"
+    tbl["M Win%"]  = rows["blended_win_prob"].apply(pct_str).values
+    tbl["M Odds"]  = rows["model_american_win"].apply(format_american).values \
+                     if "model_american_win" in rows.columns else "—"
+    tbl["Bk Odds"] = rows["book_american_win"].apply(format_american).values \
+                     if "book_american_win" in rows.columns else "—"
+    tbl["M T10%"]  = rows["blended_top10_prob"].apply(pct_str).values \
+                     if "blended_top10_prob" in rows.columns else "—"
+    tbl["DG T10%"] = rows["dg_top10_prob"].apply(pct_str).values \
+                     if "dg_top10_prob" in rows.columns else "—"
+    tbl["Edge"]    = rows["live_edge_vs_book"].apply(
+                         lambda x: f"{x:+.1%}" if pd.notna(x) else "—"
+                     ).values if "live_edge_vs_book" in rows.columns else "—"
 
-    tbl["Score"] = display.head(top_n)["current_score_to_par"].apply(score_str).values \
-        if "current_score_to_par" in display.columns else "—"
-
-    tbl["M Win%"] = display.head(top_n)["blended_win_prob"].apply(pct_str).values
-
-    tbl["M Odds"] = display.head(top_n)["model_american_win"].apply(format_american).values \
-        if "model_american_win" in display.columns else "—"
-
-    if has_book:
-        tbl["Bk Odds"] = display.head(top_n)["book_american_win"].apply(format_american).values
-
-    tbl["M T10%"] = display.head(top_n)["blended_top10_prob"].apply(pct_str).values \
-        if "blended_top10_prob" in display.columns else "—"
-
-    if has_dg:
-        tbl["DG T10%"] = display.head(top_n)["dg_top10_prob"].apply(pct_str).values
-
-    if has_edge:
-        tbl["Edge"] = display.head(top_n)["live_edge_vs_book"].apply(
-            lambda x: f"{x:+.1%}" if pd.notna(x) else "—"
-        ).values
-
-    col_cfg = {
-        "Score":   st.column_config.TextColumn("Score",   width="small"),
-        "M Win%":  st.column_config.TextColumn("M Win%",  width="small"),
-        "M Odds":  st.column_config.TextColumn("M Odds",  width="small"),
-        "Bk Odds": st.column_config.TextColumn("Bk Odds", width="small"),
-        "M T10%":  st.column_config.TextColumn("M T10%",  width="small"),
-        "DG T10%": st.column_config.TextColumn("DG T10%", width="small"),
-        "Edge":    st.column_config.TextColumn("Edge",    width="small"),
-    }
-
-    book_src = "DK/FD/BetMGM best odds. " if has_book else ""
-    dg_src   = "DG T10% = DataGolf live model. " if has_dg else ""
     st.subheader(f"Live Leaderboard — Top {min(top_n, len(tbl))} Players")
-    st.caption(f"{book_src}{dg_src}Edge = Model Win% minus Book implied win%.")
-    st.dataframe(tbl, use_container_width=True, column_config=col_cfg)
+    st.caption("Sorted by Model Win% (descending). Bk Odds = best of DK/FD/BetMGM. DG T10% = DataGolf live model. Edge = M Win% minus Book implied win%.")
+    st.dataframe(tbl, use_container_width=True, hide_index=True)
 
     # ── Movers section ──────────────────────────────────────────────────────
     if "rank_change" in display.columns:
