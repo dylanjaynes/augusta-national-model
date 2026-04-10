@@ -83,6 +83,17 @@ def pct_str(v, decimals=1) -> str:
     return f"{v:.{decimals}%}"
 
 
+def format_american(v) -> str:
+    """Format raw American odds integer/float (e.g. 280.0 → '+280', -110.0 → '-110')."""
+    if pd.isna(v):
+        return "—"
+    try:
+        v = int(round(float(v)))
+    except (ValueError, TypeError):
+        return str(v)
+    return f"+{v}" if v >= 0 else str(v)
+
+
 def color_edge(val):
     """Return CSS color for edge value."""
     if pd.isna(val):
@@ -243,33 +254,46 @@ if live_df is not None:
     display = display.sort_values("blended_win_prob", ascending=False).reset_index(drop=True)
     display["live_rank"] = range(1, len(display) + 1)
 
-    # Build display table
-    table_cols = {
-        "live_rank": "Rank",
-        "player_name": "Player",
-    }
+    # ── Build main display table ──────────────────────────────────────────────
+    # Core columns: Player | Score | Thru | Model Win% | Model Odds | Book Win% | Book Odds | Edge
+    display["score_str"] = display["current_score_to_par"].apply(score_str) \
+        if "current_score_to_par" in display.columns else "—"
+    display["holes_str"] = display["holes_completed"].apply(
+        lambda x: f"{int(x)}/18" if pd.notna(x) else "—"
+    ) if "holes_completed" in display.columns else "—"
 
-    if "current_score_to_par" in display.columns:
-        display["score_str"] = display["current_score_to_par"].apply(score_str)
-        table_cols["score_str"] = "Score"
+    display["model_win_str"] = display["blended_win_prob"].apply(pct_str)
 
-    if "holes_completed" in display.columns:
-        display["holes_str"] = display["holes_completed"].apply(
-            lambda x: f"{int(x)}/18" if pd.notna(x) else "—"
-        )
-        table_cols["holes_str"] = "Thru"
-
-    table_cols["blended_top10_prob"] = "Live T10%"
-    table_cols["blended_win_prob"] = "Live Win%"
-
+    # Model American odds — stored as integers in CSV (e.g. 490), need "+" prefix
     if "model_american_win" in display.columns:
-        table_cols["model_american_win"] = "Model Odds"
-    if "book_american_win" in display.columns:
-        table_cols["book_american_win"] = "Book Odds"
+        display["model_odds_str"] = display["model_american_win"].apply(format_american)
+    else:
+        display["model_odds_str"] = "—"
+
+    # Book win% and odds from The Odds API (DK/FD/MGM)
+    has_book = "book_implied_win" in display.columns and display["book_implied_win"].notna().any()
+    if has_book:
+        display["book_win_str"] = display["book_implied_win"].apply(pct_str)
+        display["book_odds_str"] = display["book_american_win"].apply(format_american)
+
+    # Edge: our win prob minus book implied prob
     if "live_edge_vs_book" in display.columns:
         display["edge_str"] = display["live_edge_vs_book"].apply(
             lambda x: f"{x:+.1%}" if pd.notna(x) else "—"
         )
+
+    table_cols = {
+        "live_rank": "Rank",
+        "player_name": "Player",
+        "score_str": "Score",
+        "holes_str": "Thru",
+        "model_win_str": "Model Win%",
+        "model_odds_str": "Model Odds",
+    }
+    if has_book:
+        table_cols["book_win_str"] = "Book Win%"
+        table_cols["book_odds_str"] = "Book Odds"
+    if "edge_str" in display.columns:
         table_cols["edge_str"] = "Edge"
 
     # Optional columns
@@ -279,10 +303,16 @@ if live_df is not None:
 
     if "Win Edge vs Market" in show_cols:
         if "win_edge_vs_market" in display.columns:
-            table_cols["win_edge_vs_market"] = "Win Edge"
-        elif "market_win" in display.columns and "blended_win_prob" in display.columns:
+            display["market_edge_str"] = display["win_edge_vs_market"].apply(
+                lambda x: f"{x:+.1%}" if pd.notna(x) else "—"
+            )
+            table_cols["market_edge_str"] = "Pre-Mkt Edge"
+        elif "market_win" in display.columns:
             display["win_edge_vs_market"] = display["blended_win_prob"] - display["market_win"].fillna(0)
-            table_cols["win_edge_vs_market"] = "Win Edge"
+            display["market_edge_str"] = display["win_edge_vs_market"].apply(
+                lambda x: f"{x:+.1%}" if pd.notna(x) else "—"
+            )
+            table_cols["market_edge_str"] = "Pre-Mkt Edge"
 
     if "Confidence" in show_cols and "confidence_weight" in display.columns:
         display["conf_badge"] = display["confidence_weight"].apply(
@@ -300,39 +330,58 @@ if live_df is not None:
         )
         table_cols["par5_str"] = "Par5 Avg"
 
-    # Slice and rename
     avail_cols = [c for c in table_cols if c in display.columns]
     tbl = display.head(top_n)[avail_cols].rename(columns=table_cols)
 
-    # Format percentage columns
-    for c in ["Live T10%", "Live Win%"]:
-        if c in tbl.columns:
-            tbl[c] = tbl[c].apply(lambda x: pct_str(x) if pd.notna(x) else "—")
-
-    if "Win Edge" in tbl.columns:
-        tbl["Win Edge"] = tbl["Win Edge"].apply(lambda x: pct_str(x) if pd.notna(x) else "—")
-
+    book_note = " · Book odds: best of DraftKings/FanDuel/BetMGM" if has_book else ""
     st.subheader(f"Live Leaderboard — Top {min(top_n, len(tbl))} Players")
+    st.caption(f"Edge = Model Win% minus Book implied probability{book_note}")
     st.dataframe(tbl, use_container_width=True, hide_index=True)
 
-    # ── DG Edge section ─────────────────────────────────────────────────────
+    # ── Sportsbook edge detail ───────────────────────────────────────────────
+    if has_book and "live_edge_vs_book" in display.columns:
+        st.divider()
+        st.subheader("💰 Biggest Edges vs Sportsbooks")
+        edge_cols = ["player_name", "current_score_to_par", "model_win_str",
+                     "model_odds_str", "book_win_str", "book_odds_str", "edge_str"]
+        edge_cols = [c for c in edge_cols if c in display.columns]
+        edge_df = display[edge_cols].copy()
+        edge_df["_edge_raw"] = display["live_edge_vs_book"]
+        best_edges = edge_df.sort_values("_edge_raw", ascending=False).head(15).drop(columns="_edge_raw")
+        rename = {
+            "player_name": "Player", "current_score_to_par": "Score",
+            "model_win_str": "Model Win%", "model_odds_str": "Model Odds",
+            "book_win_str": "Book Win%", "book_odds_str": "Book Odds",
+            "edge_str": "Edge (vs Book)",
+        }
+        best_edges = best_edges.rename(columns={k: v for k, v in rename.items() if k in best_edges.columns})
+        if "Score" in best_edges.columns:
+            best_edges["Score"] = best_edges["Score"].apply(score_str)
+        st.dataframe(best_edges, use_container_width=True, hide_index=True)
+        st.caption("Edge = Model Win% minus sportsbook implied probability. Positive = model likes this player more than the books.")
+
+    # ── DG model comparison ──────────────────────────────────────────────────
     if "edge_vs_dg_top10" in display.columns:
         st.divider()
-        st.subheader("🎯 Model Edge vs DataGolf Live Odds")
-        edge_df = display[["player_name", "current_pos", "blended_top10_prob",
-                            "dg_top10_prob", "edge_vs_dg_top10", "dg_win_prob",
-                            "blended_win_prob"]].copy()
-        edge_df = edge_df.sort_values("edge_vs_dg_top10", ascending=False)
-        edge_df["Our T10%"] = edge_df["blended_top10_prob"].apply(pct_str)
-        edge_df["DG T10%"] = edge_df["dg_top10_prob"].apply(lambda x: pct_str(x) if pd.notna(x) else "—")
-        edge_df["Edge"] = edge_df["edge_vs_dg_top10"].apply(
-            lambda x: f"+{x:.1%}" if (pd.notna(x) and x > 0) else (f"{x:.1%}" if pd.notna(x) else "—")
+        st.subheader("📊 Our Model vs DataGolf Live Model (T10%)")
+        dg_cols = ["player_name", "current_pos", "blended_top10_prob",
+                   "dg_top10_prob", "edge_vs_dg_top10", "dg_win_prob", "blended_win_prob"]
+        dg_cols = [c for c in dg_cols if c in display.columns]
+        dg_df = display[dg_cols].copy()
+        dg_df = dg_df.sort_values("edge_vs_dg_top10", ascending=False)
+        dg_df["Our T10%"] = dg_df["blended_top10_prob"].apply(pct_str)
+        dg_df["DG T10%"] = dg_df["dg_top10_prob"].apply(lambda x: pct_str(x) if pd.notna(x) else "—")
+        dg_df["Our Win%"] = dg_df["blended_win_prob"].apply(pct_str)
+        dg_df["DG Win%"] = dg_df["dg_win_prob"].apply(lambda x: pct_str(x) if pd.notna(x) else "—")
+        dg_df["T10 Edge"] = dg_df["edge_vs_dg_top10"].apply(
+            lambda x: f"{x:+.1%}" if pd.notna(x) else "—"
         )
-        tbl2 = edge_df.head(15)[["player_name", "current_pos", "Our T10%", "DG T10%", "Edge"]].rename(
+        tbl2 = dg_df.head(15)[["player_name", "current_pos", "Our Win%", "DG Win%",
+                                 "Our T10%", "DG T10%", "T10 Edge"]].rename(
             columns={"player_name": "Player", "current_pos": "Pos"}
         )
         st.dataframe(tbl2, use_container_width=True, hide_index=True)
-        st.caption("Positive edge = our model sees more top-10 probability than DG's live model.")
+        st.caption("DG = DataGolf's live model probabilities (not sportsbook odds). Positive T10 Edge = we're more bullish on this player.")
 
     # ── Movers section ──────────────────────────────────────────────────────
     if "rank_change" in display.columns:
