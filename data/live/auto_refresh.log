@@ -1,0 +1,278 @@
+[12:55:40] Auto-refresh started (PID 79984, every 300s)
+[12:55:40] Auto-refresh started (PID 79984, every 300s)
+/Users/dylanjaynes/Library/Python/3.9/lib/python/site-packages/urllib3/__init__.py:35: NotOpenSSLWarning: urllib3 v2 only supports OpenSSL 1.1.1+, currently the 'ssl' module is compiled with 'LibreSSL 2.8.3'. See: https://github.com/urllib3/urllib3/issues/3020
+  warnings.warn(
+Loading base data...
+  83 players in pre-tournament predictions
+  1056 hourly weather rows
+
+[12:55:42] Running live inference...
+  Live data as of: 2026-04-10 16:48:37 UTC
+  Event: Masters Tournament
+  Fetching DG in-play predictions...
+  Auto-detected round 2 from DG in-play data
+  Building feature snapshots for 91 players...
+  Loading live model...
+  Running predictions...
+
+Rank | Player                    |  Score | Holes |   T10% |  Win% |  Model Odds |  Move
+-------------------------------------------------------------------------------------
+   1 | Scottie Scheffler         |     -1 |  8/18 |  45.6% | 17.2% |        +481 |    +0
+   2 | Rory McIlroy              |     -5 |  0/18 |  58.8% | 17.1% |        +486 |    +0
+   3 | Xander Schauffele         |     -2 |  0/18 |  53.1% | 11.7% |        +752 |    +1
+   4 | Tommy Fleetwood           |     -1 |  0/18 |  49.4% |  9.1% |        +999 |    +1
+   5 | Cameron Young             |     +1 |  0/18 |  42.6% |  6.2% |       +1521 |    +1
+   6 | Matt Fitzpatrick          |     +2 |  0/18 |  42.5% |  5.9% |       +1596 |    +1
+   7 | Ludvig Aberg              |     +1 | 10/18 |  40.9% |  4.6% |       +2053 |    +2
+   8 | Russell Henley            |     +1 |  0/18 |  36.8% |  4.0% |       +2397 |    +2
+   9 | Jon Rahm                  |     +5 | 10/18 |  14.8% |  3.7% |       +2584 |    -6
+  10 | Bryson DeChambeau         |     +4 |  0/18 |  34.7% |  3.5% |       +2747 |    +1
+  11 | Robert MacIntyre          |     +7 |  8/18 |  16.7% |  1.9% |       +5066 |    -3
+  12 | Collin Morikawa           |     +2 |  0/18 |  24.6% |  1.7% |       +5935 |    +0
+  13 | Hideki Matsuyama          |     +0 |  0/18 |  23.6% |  1.5% |       +6381 |    +0
+  14 | Mason Howell              |     +5 |  0/18 |   8.6% |  1.3% |       +7611 |    --
+  15 | Brandon Holtz             |     +9 |  1/18 |   6.9% |  1.0% |       +9503 |    --
+  16 | Casey Jarvis              |     +6 |  2/18 |   6.2% |  0.9% |      +10675 |    --
+  17 | Jake Knapp                |     +1 |  0/18 |  17.3% |  0.8% |      +12711 |    -1
+  18 | Jackson Herrington        |     +5 |  5/18 |   4.6% |  0.7% |      +14167 |    --
+  19 | Naoyuki Kataoka           |    +12 |  6/18 |   4.2% |  0.6% |      +15507 |    --
+  20 | Jacob Bridgeman           |     +0 | 12/18 |  15.2% |  0.6% |      +16872 |    -2
+  Fetching live book odds...
+  Live book odds: 83 players from Odds API
+  Applying leaderboard position correction...
+  Skipping position correction: median holes=7.0 < 15
+
+Results saved to /Users/dylanjaynes/Augusta National Model/data/live/live_predictions_20260410_125543.csv
+[main 78e67db] live: auto-refresh 2026-04-10 12:55
+ 1 file changed, 9 insertions(+), 9 deletions(-)
+To https://github.com/dylanjaynes/augusta-national-model.git
+   2b2cac2..78e67db  main -> main
+[12:55:40] Pushed fresh predictions
+[12:55:40] Pushed fresh predictions
+[12:55:40] Sleeping 300s...
+[12:55:40] Sleeping 300s...
+/Users/dylanjaynes/Library/Python/3.9/lib/python/site-packages/urllib3/__init__.py:35: NotOpenSSLWarning: urllib3 v2 only supports OpenSSL 1.1.1+, currently the 'ssl' module is compiled with 'LibreSSL 2.8.3'. See: https://github.com/urllib3/urllib3/issues/3020
+  warnings.warn(
+Loading base data...
+  83 players in pre-tournament predictions
+  1056 hourly weather rows
+
+[13:00:46] Running live inference...
+  Live data as of: 2026-04-10 16:48:37 UTC
+  Event: Masters Tournament
+  Fetching DG in-play predictions...
+  Auto-detected round 2 from DG in-play data
+  Building feature snapshots for 91 players...
+  Loading live model...
+  Running predictions...
+
+Rank | Player                    |  Score | Holes |   T10% |  Win% |  Model Odds |  Move
+-------------------------------------------------------------------------------------
+   1 | Scottie Scheffler         |     -1 |  8/18 |  45.6% | 17.2% |        +481 |    +0
+   2 | Rory McIlroy              |     -5 |  0/18 |  58.8% | 17.1% |        +486 |    +0
+   3 | Xander Schauffele         |     -2 |  0/18 |  53.1% | 11.7% |        +752 |    +1
+   4 | Tommy Fleetwood           |     -1 |  0/18 |  49.4% |  9.1% |        +999 |    +1
+   5 | Cameron Young             |     +1 |  0/18 |  42.6% |  6.2% |       +1521 |    +1
+   6 | Matt Fitzpatrick          |     +2 |  0/18 |  42.5% |  5.9% |       +1596 |    +1
+   7 | Ludvig Aberg              |     +1 | 10/18 |  40.9% |  4.6% |       +2053 |    +2
+   8 | Russell Henley            |     +1 |  0/18 |  36.8% |  4.0% |       +2397 |    +2
+   9 | Jon Rahm                  |     +5 | 10/18 |  14.8% |  3.7% |       +2584 |    -6
+  10 | Bryson DeChambeau         |     +4 |  0/18 |  34.7% |  3.5% |       +2747 |    +1
+  11 | Robert MacIntyre          |     +7 |  8/18 |  16.7% |  1.9% |       +5066 |    -3
+  12 | Collin Morikawa           |     +2 |  0/18 |  24.6% |  1.7% |       +5935 |    +0
+  13 | Hideki Matsuyama          |     +0 |  0/18 |  23.6% |  1.5% |       +6381 |    +0
+  14 | Mason Howell              |     +5 |  0/18 |   8.6% |  1.3% |       +7611 |    --
+  15 | Brandon Holtz             |     +9 |  1/18 |   6.9% |  1.0% |       +9503 |    --
+  16 | Casey Jarvis              |     +6 |  2/18 |   6.2% |  0.9% |      +10675 |    --
+  17 | Jake Knapp                |     +1 |  0/18 |  17.3% |  0.8% |      +12711 |    -1
+  18 | Jackson Herrington        |     +5 |  5/18 |   4.6% |  0.7% |      +14167 |    --
+  19 | Naoyuki Kataoka           |    +12 |  6/18 |   4.2% |  0.6% |      +15507 |    --
+  20 | Jacob Bridgeman           |     +0 | 12/18 |  15.2% |  0.6% |      +16872 |    -2
+  Fetching live book odds...
+  Live book odds: 83 players from Odds API
+  Applying leaderboard position correction...
+  Skipping position correction: median holes=7.0 < 15
+
+Results saved to /Users/dylanjaynes/Augusta National Model/data/live/live_predictions_20260410_130047.csv
+[main addf3ec] live: auto-refresh 2026-04-10 13:00
+ 1 file changed, 87 insertions(+), 87 deletions(-)
+To https://github.com/dylanjaynes/augusta-national-model.git
+   a6a7d10..addf3ec  main -> main
+[13:00:44] Pushed fresh predictions
+[13:00:44] Pushed fresh predictions
+[13:00:44] Sleeping 300s...
+[13:00:44] Sleeping 300s...
+/Users/dylanjaynes/Library/Python/3.9/lib/python/site-packages/urllib3/__init__.py:35: NotOpenSSLWarning: urllib3 v2 only supports OpenSSL 1.1.1+, currently the 'ssl' module is compiled with 'LibreSSL 2.8.3'. See: https://github.com/urllib3/urllib3/issues/3020
+  warnings.warn(
+Loading base data...
+  83 players in pre-tournament predictions
+  1056 hourly weather rows
+
+[18:07:55] Running live inference...
+  DG live API error: HTTPSConnectionPool(host='feeds.datagolf.com', port=443): Max retries exceeded with url: /preds/live-tournament-stats?stats=sg_putt%2Csg_arg%2Csg_app%2Csg_ott%2Csg_t2g%2Csg_bs%2Csg_total&round=event_cumulative&file_format=json&key=91328c2c8e115c9e9b13461a8c3f (Caused by NameResolutionError("<urllib3.connection.HTTPSConnection object at 0x17fe17a00>: Failed to resolve 'feeds.datagolf.com' ([Errno 8] nodename nor servname provided, or not known)"))
+  No live data returned from DG API
+[main 40207b2] live: auto-refresh 2026-04-10 18:07
+ 1 file changed, 91 insertions(+), 91 deletions(-)
+fatal: unable to access 'https://github.com/dylanjaynes/augusta-national-model.git/': Could not resolve host: github.com
+[18:07:53] Pushed fresh predictions
+[18:07:53] Pushed fresh predictions
+[18:07:53] Sleeping 300s...
+[18:07:53] Sleeping 300s...
+/Users/dylanjaynes/Library/Python/3.9/lib/python/site-packages/urllib3/__init__.py:35: NotOpenSSLWarning: urllib3 v2 only supports OpenSSL 1.1.1+, currently the 'ssl' module is compiled with 'LibreSSL 2.8.3'. See: https://github.com/urllib3/urllib3/issues/3020
+  warnings.warn(
+Loading base data...
+  83 players in pre-tournament predictions
+  1056 hourly weather rows
+
+[19:37:47] Running live inference...
+  Live data as of: 2026-04-10 23:33:42 UTC
+  Event: Masters Tournament
+  Fetching DG in-play predictions...
+  Auto-detected round 2 from DG in-play data
+  Building feature snapshots for 91 players...
+  Loading live model...
+  Running predictions...
+
+Rank | Player                    |  Score | Holes |   T10% |  Win% |  Model Odds |  Move
+-------------------------------------------------------------------------------------
+   1 | Scottie Scheffler         |     +0 | 18/18 |  34.2% | 22.9% |        +336 |    +0
+   2 | Tommy Fleetwood           |     -5 | 18/18 |  39.0% | 12.7% |        +685 |    +3
+   3 | Xander Schauffele         |     -2 | 18/18 |  24.6% |  9.7% |        +936 |    +1
+   4 | Cameron Young             |     -4 | 18/18 |  34.6% |  8.9% |       +1026 |    +2
+   5 | Russell Henley            |     +0 | 18/18 |  37.7% |  7.3% |       +1276 |    +5
+   6 | Ludvig Aberg              |     +0 | 18/18 |  35.4% |  7.1% |       +1300 |    +3
+   7 | Rory McIlroy              |    -12 | 18/18 |  11.5% |  6.0% |       +1580 |    -5
+   8 | Collin Morikawa           |     -1 | 18/18 |  39.5% |  4.7% |       +2013 |    +4
+   9 | Sam Burns                 |     -6 | 18/18 |  51.3% |  3.2% |       +3019 |   +11
+  10 | Jake Knapp                |     -2 | 18/18 |  23.2% |  1.9% |       +5271 |    +6
+  11 | Hideki Matsuyama          |     -2 | 18/18 |  10.1% |  1.2% |       +8477 |    +2
+  12 | Harris English            |     +0 | 18/18 |  23.7% |  1.1% |       +9312 |   +13
+  13 | Viktor Hovland            |     +2 | 18/18 |  20.7% |  1.0% |      +10084 |   +10
+  14 | Chris Gotterup            |     -3 | 18/18 |  26.5% |  0.9% |      +10755 |   +13
+  15 | Robert MacIntyre          |     +7 | 18/18 |   4.4% |  0.9% |      +11064 |    -7
+  16 | Jon Rahm                  |     +4 | 18/18 |   1.8% |  0.8% |      +12032 |   -13
+  17 | Jacob Bridgeman           |     +1 | 18/18 |  11.9% |  0.8% |      +12060 |    +1
+  18 | Jason Day                 |     -4 | 18/18 |  27.8% |  0.8% |      +12629 |   +16
+  19 | Ben Griffin               |     -3 | 18/18 |  32.1% |  0.7% |      +14287 |   +14
+  20 | Bryson DeChambeau         |     +6 | 18/18 |   3.7% |  0.7% |      +14751 |    -9
+  Cut filter applied — 37 players below 50% make-cut scaled down
+  Fetching live book odds...
+  Live book odds: 54 players from Odds API
+  Applying leaderboard position correction...
+  Position correction: pos_weight=0.52, k=0.7, rounds_complete=2.0 (50% of tournament)
+
+Results saved to /Users/dylanjaynes/Augusta National Model/data/live/live_predictions_20260410_193749.csv
+[main c09ebe6] live: auto-refresh 2026-04-10 19:37
+ 1 file changed, 65 insertions(+), 65 deletions(-)
+To https://github.com/dylanjaynes/augusta-national-model.git
+   2da871c..c09ebe6  main -> main
+[19:37:46] Pushed fresh predictions
+[19:37:46] Pushed fresh predictions
+[19:37:46] Sleeping 300s...
+[19:37:46] Sleeping 300s...
+/Users/dylanjaynes/Library/Python/3.9/lib/python/site-packages/urllib3/__init__.py:35: NotOpenSSLWarning: urllib3 v2 only supports OpenSSL 1.1.1+, currently the 'ssl' module is compiled with 'LibreSSL 2.8.3'. See: https://github.com/urllib3/urllib3/issues/3020
+  warnings.warn(
+Loading base data...
+  83 players in pre-tournament predictions
+  1056 hourly weather rows
+
+[19:42:51] Running live inference...
+  Live data as of: 2026-04-10 23:33:42 UTC
+  Event: Masters Tournament
+  Fetching DG in-play predictions...
+  Auto-detected round 2 from DG in-play data
+  Building feature snapshots for 91 players...
+  Loading live model...
+  Running predictions...
+
+Rank | Player                    |  Score | Holes |   T10% |  Win% |  Model Odds |  Move
+-------------------------------------------------------------------------------------
+   1 | Scottie Scheffler         |     +0 | 18/18 |  34.2% | 22.9% |        +336 |    +0
+   2 | Tommy Fleetwood           |     -5 | 18/18 |  39.0% | 12.7% |        +685 |    +3
+   3 | Xander Schauffele         |     -2 | 18/18 |  24.6% |  9.7% |        +936 |    +1
+   4 | Cameron Young             |     -4 | 18/18 |  34.6% |  8.9% |       +1026 |    +2
+   5 | Russell Henley            |     +0 | 18/18 |  37.7% |  7.3% |       +1276 |    +5
+   6 | Ludvig Aberg              |     +0 | 18/18 |  35.4% |  7.1% |       +1300 |    +3
+   7 | Rory McIlroy              |    -12 | 18/18 |  11.5% |  6.0% |       +1580 |    -5
+   8 | Collin Morikawa           |     -1 | 18/18 |  39.5% |  4.7% |       +2013 |    +4
+   9 | Sam Burns                 |     -6 | 18/18 |  51.3% |  3.2% |       +3019 |   +11
+  10 | Jake Knapp                |     -2 | 18/18 |  23.2% |  1.9% |       +5271 |    +6
+  11 | Hideki Matsuyama          |     -2 | 18/18 |  10.1% |  1.2% |       +8477 |    +2
+  12 | Harris English            |     +0 | 18/18 |  23.7% |  1.1% |       +9312 |   +13
+  13 | Viktor Hovland            |     +2 | 18/18 |  20.7% |  1.0% |      +10084 |   +10
+  14 | Chris Gotterup            |     -3 | 18/18 |  26.5% |  0.9% |      +10755 |   +13
+  15 | Robert MacIntyre          |     +7 | 18/18 |   4.4% |  0.9% |      +11064 |    -7
+  16 | Jon Rahm                  |     +4 | 18/18 |   1.8% |  0.8% |      +12032 |   -13
+  17 | Jacob Bridgeman           |     +1 | 18/18 |  11.9% |  0.8% |      +12060 |    +1
+  18 | Jason Day                 |     -4 | 18/18 |  27.8% |  0.8% |      +12629 |   +16
+  19 | Ben Griffin               |     -3 | 18/18 |  32.1% |  0.7% |      +14287 |   +14
+  20 | Bryson DeChambeau         |     +6 | 18/18 |   3.7% |  0.7% |      +14751 |    -9
+  Cut filter applied — 37 players below 50% make-cut scaled down
+  Round blend: 36 total holes → 70% DG / 30% our model
+  Fetching live book odds...
+  Live book odds: 54 players from Odds API
+  Applying leaderboard position correction...
+
+Results saved to /Users/dylanjaynes/Augusta National Model/data/live/live_predictions_20260410_194252.csv
+[19:42:49] No changes to push (data unchanged)
+[19:42:49] No changes to push (data unchanged)
+[19:42:49] Sleeping 300s...
+[19:42:49] Sleeping 300s...
+/Users/dylanjaynes/Library/Python/3.9/lib/python/site-packages/urllib3/__init__.py:35: NotOpenSSLWarning: urllib3 v2 only supports OpenSSL 1.1.1+, currently the 'ssl' module is compiled with 'LibreSSL 2.8.3'. See: https://github.com/urllib3/urllib3/issues/3020
+  warnings.warn(
+Loading base data...
+  83 players in pre-tournament predictions
+  1056 hourly weather rows
+
+[19:47:54] Running live inference...
+  Live data as of: 2026-04-10 23:33:42 UTC
+  Event: Masters Tournament
+  Fetching DG in-play predictions...
+  Auto-detected round 2 from DG in-play data
+  Building feature snapshots for 91 players...
+  Loading live model...
+  Running predictions...
+
+Rank | Player                    |  Score | Holes |   T10% |  Win% |  Model Odds |  Move
+-------------------------------------------------------------------------------------
+   1 | Scottie Scheffler         |     +0 | 18/18 |  34.2% | 22.9% |        +336 |    +0
+   2 | Tommy Fleetwood           |     -5 | 18/18 |  39.0% | 12.7% |        +685 |    +3
+   3 | Xander Schauffele         |     -2 | 18/18 |  24.6% |  9.7% |        +936 |    +1
+   4 | Cameron Young             |     -4 | 18/18 |  34.6% |  8.9% |       +1026 |    +2
+   5 | Russell Henley            |     +0 | 18/18 |  37.7% |  7.3% |       +1276 |    +5
+   6 | Ludvig Aberg              |     +0 | 18/18 |  35.4% |  7.1% |       +1300 |    +3
+   7 | Rory McIlroy              |    -12 | 18/18 |  11.5% |  6.0% |       +1580 |    -5
+   8 | Collin Morikawa           |     -1 | 18/18 |  39.5% |  4.7% |       +2013 |    +4
+   9 | Sam Burns                 |     -6 | 18/18 |  51.3% |  3.2% |       +3019 |   +11
+  10 | Jake Knapp                |     -2 | 18/18 |  23.2% |  1.9% |       +5271 |    +6
+  11 | Hideki Matsuyama          |     -2 | 18/18 |  10.1% |  1.2% |       +8477 |    +2
+  12 | Harris English            |     +0 | 18/18 |  23.7% |  1.1% |       +9312 |   +13
+  13 | Viktor Hovland            |     +2 | 18/18 |  20.7% |  1.0% |      +10084 |   +10
+  14 | Chris Gotterup            |     -3 | 18/18 |  26.5% |  0.9% |      +10755 |   +13
+  15 | Robert MacIntyre          |     +7 | 18/18 |   4.4% |  0.9% |      +11064 |    -7
+  16 | Jon Rahm                  |     +4 | 18/18 |   1.8% |  0.8% |      +12032 |   -13
+  17 | Jacob Bridgeman           |     +1 | 18/18 |  11.9% |  0.8% |      +12060 |    +1
+  18 | Jason Day                 |     -4 | 18/18 |  27.8% |  0.8% |      +12629 |   +16
+  19 | Ben Griffin               |     -3 | 18/18 |  32.1% |  0.7% |      +14287 |   +14
+  20 | Bryson DeChambeau         |     +6 | 18/18 |   3.7% |  0.7% |      +14751 |    -9
+  Cut filter applied — 37 players below 50% make-cut scaled down
+  Round blend: 36 total holes → 70% DG / 30% our model
+  Fetching live book odds...
+  Live book odds: 54 players from Odds API
+  Applying leaderboard position correction...
+
+Results saved to /Users/dylanjaynes/Augusta National Model/data/live/live_predictions_20260410_194755.csv
+[main f2540fc] live: auto-refresh 2026-04-10 19:47
+ 1 file changed, 4 insertions(+), 4 deletions(-)
+To https://github.com/dylanjaynes/augusta-national-model.git
+ ! [rejected]        main -> main (fetch first)
+error: failed to push some refs to 'https://github.com/dylanjaynes/augusta-national-model.git'
+hint: Updates were rejected because the remote contains work that you do
+hint: not have locally. This is usually caused by another repository pushing
+hint: to the same ref. You may want to first integrate the remote changes
+hint: (e.g., 'git pull ...') before pushing again.
+hint: See the 'Note about fast-forwards' in 'git push --help' for details.
+[19:47:52] Pushed fresh predictions
+[19:47:52] Pushed fresh predictions
+[19:47:52] Sleeping 300s...
+[19:47:52] Sleeping 300s...

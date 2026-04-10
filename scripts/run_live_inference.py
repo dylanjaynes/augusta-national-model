@@ -596,40 +596,51 @@ def main():
                 results["blended_top10_prob"] = results["blended_top10_prob"] * cut_w
                 print(f"  Cut filter applied — {(cut_w < 0.5).sum()} players below 50% make-cut scaled down")
 
-            # ── Progressive round-based DG blend ─────────────────────────────
-            # After more holes are complete the actual leaderboard position
-            # dominates. Hand off progressively more weight to DG's live model.
+            # ── Score-based position multiplier (our model stays primary) ──────
+            # Our live XGBoost correctly captures Augusta skill profiles but
+            # doesn't respond strongly enough to cumulative tournament position.
+            # Fix: multiply our model's output by exp(-score * k) then renorm.
+            # This is a Bayesian update from the leaderboard — OUR model leads,
+            # position adjusts it. DG is used only as a 20% calibration check.
             #
-            # Holes complete → DG blend weight:
-            #   R1 in progress (<18 done):  20%
-            #   R1 complete (18):           40%
-            #   R2 in progress (18-36):     55%
-            #   R2 complete (36):           70%   ← ~here now
-            #   R3 in progress (36-54):     80%
-            #   R3 complete (54):           85%
-            #   R4 in progress (54-72):     90%
+            # k scales with tournament progress:
+            #   R1 done (18 holes): k=0.25 — skill still dominates
+            #   R2 done (36 holes): k=0.45 — position increasingly important
+            #   R3 done (54 holes): k=0.65 — position dominant
+            #   R4 in progress:     k=0.80 — almost all position
             median_thru = results["thru"].fillna(0).median() if "thru" in results.columns else 0
             total_holes = (current_round - 1) * 18 + median_thru
-            if total_holes <= 9:
-                dg_blend = 0.20
-            elif total_holes <= 18:
-                dg_blend = 0.20 + 0.20 * (total_holes / 18)        # 20→40% through R1
+
+            # k calibrated so after R2 a 6-shot leader has ~50% win prob
+            # before the 20% DG blend (DG further nudges toward actual market)
+            if total_holes <= 18:
+                k = 0.05 + 0.07 * (total_holes / 18)        # 0.05→0.12 through R1
             elif total_holes <= 36:
-                dg_blend = 0.40 + 0.30 * ((total_holes - 18) / 18) # 40→70% through R2
+                k = 0.12 + 0.08 * ((total_holes - 18) / 18) # 0.12→0.20 through R2
             elif total_holes <= 54:
-                dg_blend = 0.70 + 0.15 * ((total_holes - 36) / 18) # 70→85% through R3
+                k = 0.20 + 0.10 * ((total_holes - 36) / 18) # 0.20→0.30 through R3
             else:
-                dg_blend = 0.85 + 0.05 * ((total_holes - 54) / 18) # 85→90% through R4
-            dg_blend = min(dg_blend, 0.90)
-            our_blend = 1.0 - dg_blend
-            print(f"  Round blend: {total_holes:.0f} total holes → {dg_blend:.0%} DG / {our_blend:.0%} our model")
+                k = 0.30 + 0.10 * ((total_holes - 54) / 18) # 0.30→0.40 through R4
+            k = min(k, 0.40)
 
+            # Use DG cumulative score as position signal (correct across rounds)
+            if "current_score" in results.columns:
+                results["current_score_to_par"] = results["current_score"]
+
+            scores = results["current_score_to_par"].fillna(0).values.astype(float)
+            pos_multiplier = np.exp(-scores * k)
+
+            results["blended_win_prob"]   = results["blended_win_prob"]   * pos_multiplier
+            results["blended_top10_prob"] = results["blended_top10_prob"] * pos_multiplier
+            print(f"  Score multiplier: {total_holes:.0f} holes done, k={k:.2f} "
+                  f"(leader multiplier vs E = {np.exp(-scores.min()*k) / np.exp(0):.1f}x)")
+
+            # 20% DG calibration blend — keeps us honest but we stay primary
             if "dg_win_prob" in results.columns:
-                dg_win  = results["dg_win_prob"].fillna(results["blended_win_prob"])
-                dg_t10  = results["dg_top10_prob"].fillna(results["blended_top10_prob"] / 10) * 10
-
-                results["blended_win_prob"]   = our_blend * results["blended_win_prob"]   + dg_blend * dg_win
-                results["blended_top10_prob"] = our_blend * results["blended_top10_prob"] + dg_blend * dg_t10
+                dg_win = results["dg_win_prob"].fillna(0)
+                dg_t10 = results["dg_top10_prob"].fillna(0) * 10
+                results["blended_win_prob"]   = 0.80 * results["blended_win_prob"]   + 0.20 * dg_win
+                results["blended_top10_prob"] = 0.80 * results["blended_top10_prob"] + 0.20 * dg_t10
 
             # Renormalise
             win_sum = results["blended_win_prob"].sum()
