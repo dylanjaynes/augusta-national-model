@@ -1,0 +1,53 @@
+name: Live Predictions Refresh
+
+on:
+  schedule:
+    # Every 5 minutes during Masters week (GitHub Actions minimum is 5 min)
+    - cron: '*/5 * * * *'
+  workflow_dispatch:
+    # Also allow manual trigger from GitHub Actions UI
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    timeout-minutes: 4  # Must finish before next 5-min window
+
+    permissions:
+      contents: write  # Allows committing back to the repo
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+        with:
+          # Use a deploy key or PAT so the push triggers Streamlit Cloud
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run live inference
+        env:
+          DATAGOLF_API_KEY: ${{ secrets.DATAGOLF_API_KEY }}
+          ODDS_API_KEY: ${{ secrets.ODDS_API_KEY }}
+        run: |
+          mkdir -p data/live
+          python3 scripts/run_live_inference.py --dg-live
+
+      - name: Commit and push updated predictions
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add data/live/live_predictions_latest.csv
+          # Only commit if file actually changed
+          if git diff --cached --quiet; then
+            echo "No changes — data unchanged since last run"
+          else
+            git commit -m "live: auto-refresh $(date -u '+%Y-%m-%d %H:%M UTC')"
+            git push
+          fi
