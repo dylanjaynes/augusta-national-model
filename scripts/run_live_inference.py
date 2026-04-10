@@ -47,23 +47,19 @@ from augusta_model.model.live_model import (
 )
 
 DATA_DIR = ROOT / "data" / "processed"
-
-# Fallback: if running from a worktree, some data files live in the main project
-_MAIN_PROJECT = Path("/Users/dylanjaynes/Augusta National Model")
-_MAIN_DATA_DIR = _MAIN_PROJECT / "data" / "processed"
-
-# Always write live output to main project so Streamlit Cloud picks it up
-OUTPUT_DIR = _MAIN_PROJECT / "data" / "live"
+OUTPUT_DIR = ROOT / "data" / "live"
 
 
 def _find_data_file(filename: str) -> Path:
-    """Return path to data file, falling back to main project if not in worktree."""
+    """Return path to data file, checking worktree fallback paths."""
     local = DATA_DIR / filename
     if local.exists():
         return local
-    main = _MAIN_DATA_DIR / filename
-    if main.exists():
-        return main
+    # Worktree fallback: walk up to find the actual repo root
+    for parent in ROOT.parents:
+        candidate = parent / "data" / "processed" / filename
+        if candidate.exists():
+            return candidate
     return local  # Return local path so error message is clear
 
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
