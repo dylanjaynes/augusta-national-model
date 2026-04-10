@@ -589,7 +589,11 @@ def main():
 
     print("Loading base data...")
     predictions_df = pd.read_parquet(_find_data_file("predictions_2026.parquet"))
-    weather_hourly = pd.read_parquet(_find_data_file("masters_weather_hourly.parquet"))
+    try:
+        weather_hourly = pd.read_parquet(_find_data_file("masters_weather_hourly.parquet"))
+    except FileNotFoundError:
+        print("  Warning: masters_weather_hourly.parquet not found — using empty weather")
+        weather_hourly = pd.DataFrame()
     hbh = pd.read_parquet(_find_data_file("masters_hole_by_hole.parquet"))
     course_stats = _load_course_stats(hbh[hbh["year"] <= 2025])
 
@@ -648,6 +652,28 @@ def main():
             results["edge_vs_dg_top10"] = (
                 results["blended_top10_prob"] - results["dg_top10_prob"].fillna(0)
             )
+
+            # ── Cut-probability filter ────────────────────────────────────────
+            # Players unlikely to make the cut can't win. Scale our win/T10
+            # probabilities by DG's make-cut probability, then renormalise.
+            if "dg_make_cut" in results.columns:
+                cut_w = results["dg_make_cut"].fillna(1.0).clip(0, 1)
+                results["blended_win_prob"]   = results["blended_win_prob"]   * cut_w
+                results["blended_top10_prob"] = results["blended_top10_prob"] * cut_w
+                # Renormalise so win sums to 1 and T10 sums to 10
+                win_sum = results["blended_win_prob"].sum()
+                t10_sum = results["blended_top10_prob"].sum()
+                if win_sum > 0:
+                    results["blended_win_prob"] = results["blended_win_prob"] / win_sum
+                if t10_sum > 0:
+                    results["blended_top10_prob"] = results["blended_top10_prob"] * (10.0 / t10_sum)
+                # Recompute American odds after cut adjustment
+                results["model_american_win"]   = results["blended_win_prob"].apply(prob_to_american)
+                results["model_american_top10"] = (results["blended_top10_prob"] / 10).apply(prob_to_american)
+                # Re-sort by win prob and reassign rank
+                results = results.sort_values("blended_win_prob", ascending=False).reset_index(drop=True)
+                results["live_rank"] = range(1, len(results) + 1)
+                print(f"  Cut filter applied — {(cut_w < 0.5).sum()} players below 50% make-cut scaled down")
 
         # Fetch and merge live book odds
         print("  Fetching live book odds...")
