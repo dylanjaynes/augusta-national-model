@@ -47,7 +47,24 @@ from augusta_model.model.live_model import (
 )
 
 DATA_DIR = ROOT / "data" / "processed"
-OUTPUT_DIR = ROOT / "data" / "live"
+
+# Fallback: if running from a worktree, some data files live in the main project
+_MAIN_PROJECT = Path("/Users/dylanjaynes/Augusta National Model")
+_MAIN_DATA_DIR = _MAIN_PROJECT / "data" / "processed"
+
+# Always write live output to main project so Streamlit Cloud picks it up
+OUTPUT_DIR = _MAIN_PROJECT / "data" / "live"
+
+
+def _find_data_file(filename: str) -> Path:
+    """Return path to data file, falling back to main project if not in worktree."""
+    local = DATA_DIR / filename
+    if local.exists():
+        return local
+    main = _MAIN_DATA_DIR / filename
+    if main.exists():
+        return main
+    return local  # Return local path so error message is clear
 
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
@@ -254,7 +271,7 @@ def build_snapshot_from_live_scores(
              and optionally individual hole scores.
     """
     # Load hole-by-hole data as a proxy for detailed scoring
-    hbh_path = DATA_DIR / "masters_hole_by_hole.parquet"
+    hbh_path = _find_data_file("masters_hole_by_hole.parquet")
     has_hbh = hbh_path.exists()
 
     rows = []
@@ -477,6 +494,74 @@ def run_inference(
     return results
 
 
+def apply_position_correction(
+    results: pd.DataFrame,
+    current_round: int = 1,
+) -> pd.DataFrame:
+    """
+    Shift win probabilities to reflect current leaderboard position.
+
+    The pre-tournament model anchors win% to pre-tournament skill rankings via a
+    fixed win/top10 ratio. After a complete round, leaders who outperformed their
+    seed (Burns at -5 from a +800 pre-tourney price) end up with unrealistically
+    low win probabilities.
+
+    This blends in a Boltzmann-weighted position component:
+      - k=0.7: each stroke better = exp(0.7) ≈ 2× more likely to win
+      - After R1 (25% of tournament done): pos_weight ≈ 0.65
+        → co-leader at -5 gets ~10-14% win vs 3.3% raw
+      - After R2 (50%): pos_weight ≈ 0.85 (capped)
+
+    Only activates when median holes_completed ≥ 15 (full round nearly done).
+    """
+    if "current_score_to_par" not in results.columns:
+        return results
+
+    results = results.copy()
+
+    # Guard: skip if players haven't finished a full round
+    if "holes_completed" in results.columns:
+        median_holes = results["holes_completed"].median()
+    else:
+        median_holes = 18.0  # Assume full round if column absent
+
+    if median_holes < 15:
+        print(f"  Skipping position correction: median holes={median_holes:.1f} < 15")
+        return results
+
+    # Rounds complete = prior complete rounds + fraction of current round done
+    rounds_complete = (current_round - 1) + (median_holes / 18.0)
+    tournament_pct = rounds_complete / 4.0  # 0.25 after R1, 0.50 after R2, etc.
+
+    # Boltzmann weights: exp(-score * k) → lower score = higher weight
+    scores = results["current_score_to_par"].fillna(0).values.astype(float)
+    k = 0.7
+    win_weights = np.exp(-scores * k)
+    pos_win_prob = win_weights / win_weights.sum()
+
+    # Position weight: 0.65 after R1, capped at 0.85
+    pos_weight = min(0.85, 0.35 + tournament_pct * 1.2)
+    print(
+        f"  Position correction: pos_weight={pos_weight:.2f}, k={k}, "
+        f"rounds_complete={rounds_complete:.1f} ({tournament_pct:.0%} of tournament)"
+    )
+
+    # Normalize current model win probs
+    model_win = results["blended_win_prob"].values.astype(float)
+    model_win_norm = model_win / max(model_win.sum(), 1e-8)
+
+    # Blend and renormalize
+    blended = pos_weight * pos_win_prob + (1 - pos_weight) * model_win_norm
+    results["blended_win_prob"] = blended / blended.sum()
+
+    # Refresh American odds and rank
+    results["model_american_win"] = results["blended_win_prob"].apply(prob_to_american)
+    results = results.sort_values("blended_win_prob", ascending=False).reset_index(drop=True)
+    results["live_rank"] = range(1, len(results) + 1)
+
+    return results
+
+
 def save_results(results: pd.DataFrame, suffix: str = "") -> Path:
     """Save inference results to live data directory."""
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -504,9 +589,9 @@ def main():
     args = parser.parse_args()
 
     print("Loading base data...")
-    predictions_df = pd.read_parquet(DATA_DIR / "predictions_2026.parquet")
-    weather_hourly = pd.read_parquet(DATA_DIR / "masters_weather_hourly.parquet")
-    hbh = pd.read_parquet(DATA_DIR / "masters_hole_by_hole.parquet")
+    predictions_df = pd.read_parquet(_find_data_file("predictions_2026.parquet"))
+    weather_hourly = pd.read_parquet(_find_data_file("masters_weather_hourly.parquet"))
+    hbh = pd.read_parquet(_find_data_file("masters_hole_by_hole.parquet"))
     course_stats = _load_course_stats(hbh[hbh["year"] <= 2025])
 
     print(f"  {len(predictions_df)} players in pre-tournament predictions")
@@ -574,7 +659,13 @@ def main():
                 on="player_name",
                 how="left",
             )
-            # Edge: our model win prob vs live book implied prob (positive = we like them more)
+
+        # Apply position correction AFTER all merges so scores are present
+        print("  Applying leaderboard position correction...")
+        results = apply_position_correction(results, current_round=current_round)
+
+        # Recompute book edge using corrected win probs
+        if "book_implied_win" in results.columns:
             results["live_edge_vs_book"] = (
                 results["blended_win_prob"] - results["book_implied_win"].fillna(0)
             )
