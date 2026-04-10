@@ -262,6 +262,16 @@ if live_df is not None:
     table_cols["blended_top10_prob"] = "Live T10%"
     table_cols["blended_win_prob"] = "Live Win%"
 
+    if "model_american_win" in display.columns:
+        table_cols["model_american_win"] = "Model Odds"
+    if "book_american_win" in display.columns:
+        table_cols["book_american_win"] = "Book Odds"
+    if "live_edge_vs_book" in display.columns:
+        display["edge_str"] = display["live_edge_vs_book"].apply(
+            lambda x: f"{x:+.1%}" if pd.notna(x) else "—"
+        )
+        table_cols["edge_str"] = "Edge"
+
     # Optional columns
     if "Rank Change" in show_cols and "rank_change" in display.columns:
         display["move_str"] = display["rank_change"].apply(movement_arrow)

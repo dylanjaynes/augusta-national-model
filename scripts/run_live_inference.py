@@ -52,9 +52,77 @@ OUTPUT_DIR = ROOT / "data" / "live"
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
 DATAGOLF_API_KEY = os.getenv("DATAGOLF_API_KEY", "91328c2c8e115c9e9b13461a8c3f")
+ODDS_API_KEY = os.getenv("ODDS_API_KEY", "78fcb125d1413e1e832f024e1335ff3a")
 
 # DataGolf live stats endpoint
 DG_LIVE_URL = "https://feeds.datagolf.com/preds/live-tournament-stats"
+
+
+def prob_to_american(p: float) -> str:
+    """Convert win probability to American odds string (+150, -200, etc.)."""
+    if pd.isna(p) or p <= 0 or p >= 1:
+        return "—"
+    if p >= 0.5:
+        return f"{round(-p / (1 - p) * 100):+d}"
+    else:
+        return f"+{round((1 - p) / p * 100)}"
+
+
+def fetch_live_book_odds() -> pd.DataFrame:
+    """
+    Fetch current live outright odds from The Odds API.
+    Returns DataFrame: player_name, book_american_win (best available across DK/FD/MGM).
+    """
+    url = "https://api.the-odds-api.com/v4/sports/golf_masters_tournament_winner/odds"
+    params = {
+        "apiKey": ODDS_API_KEY,
+        "regions": "us",
+        "markets": "outrights",
+        "oddsFormat": "american",
+        "bookmakers": "draftkings,fanduel,betmgm",
+    }
+    try:
+        resp = requests.get(url, params=params, timeout=10)
+        resp.raise_for_status()
+        data = resp.json()
+    except Exception as e:
+        print(f"  Odds API error: {e}")
+        return pd.DataFrame()
+
+    if not data:
+        return pd.DataFrame()
+
+    # Collect best (highest) American odds per player across all books
+    best_odds: dict[str, int] = {}
+    book_used: dict[str, str] = {}
+    for event in data:
+        for book in event.get("bookmakers", []):
+            book_name = book["key"]
+            for market in book.get("markets", []):
+                if market["key"] != "outrights":
+                    continue
+                for outcome in market.get("outcomes", []):
+                    name = _normalize_name(outcome["name"])
+                    price = outcome["price"]
+                    # Higher American odds = better value for bettor; track best
+                    if name not in best_odds or price > best_odds[name]:
+                        best_odds[name] = price
+                        book_used[name] = book_name
+
+    if not best_odds:
+        return pd.DataFrame()
+
+    rows = [
+        {"player_name": name, "book_american_win": odds, "best_book": book_used[name]}
+        for name, odds in best_odds.items()
+    ]
+    df = pd.DataFrame(rows)
+    # Convert American to implied probability
+    df["book_implied_win"] = df["book_american_win"].apply(
+        lambda x: 100 / (x + 100) if x >= 0 else (-x) / (-x + 100)
+    )
+    print(f"  Live book odds: {len(df)} players from Odds API")
+    return df
 
 
 def _normalize_name(name: str) -> str:
@@ -370,8 +438,12 @@ def run_inference(
         results["market_top10"] = results["player_name"].map(mkt_map["market_top10"])
         results["win_edge_vs_market"] = results["blended_win_prob"] - results["market_win"].fillna(0)
 
-    # Sort by live probability
-    results = results.sort_values("blended_top10_prob", ascending=False).reset_index(drop=True)
+    # American odds for our model predictions
+    results["model_american_win"] = results["blended_win_prob"].apply(prob_to_american)
+    results["model_american_top10"] = (results["blended_top10_prob"] / 10).apply(prob_to_american)
+
+    # Sort by win probability descending, assign rank
+    results = results.sort_values("blended_win_prob", ascending=False).reset_index(drop=True)
     results["live_rank"] = range(1, len(results) + 1)
 
     # Pre-tournament rank for comparison
@@ -386,8 +458,8 @@ def run_inference(
         results["rank_change"] = results["pre_tournament_rank"] - results["live_rank"]
 
     if verbose:
-        print(f"\n{'Rank':>4} | {'Player':<25} | {'Score':>6} | {'Holes':>5} | {'T10%':>6} | {'Win%':>5} | {'Move':>5}")
-        print("-" * 70)
+        print(f"\n{'Rank':>4} | {'Player':<25} | {'Score':>6} | {'Holes':>5} | {'T10%':>6} | {'Win%':>5} | {'Model Odds':>11} | {'Move':>5}")
+        print("-" * 85)
         for _, row in results.head(20).iterrows():
             score_str = f"{int(row.get('current_score_to_par', 0)):+d}" if pd.notna(row.get('current_score_to_par')) else "  E"
             holes_str = f"{int(row.get('holes_completed', 0))}/18"
@@ -398,6 +470,7 @@ def run_inference(
                 f"{score_str:>6} | {holes_str:>5} | "
                 f"{row['blended_top10_prob']:6.1%} | "
                 f"{row['blended_win_prob']:5.1%} | "
+                f"{row['model_american_win']:>11} | "
                 f"{move_str:>5}"
             )
 
@@ -490,6 +563,20 @@ def main():
             # Edge vs DG model on top-10
             results["edge_vs_dg_top10"] = (
                 results["blended_top10_prob"] - results["dg_top10_prob"].fillna(0)
+            )
+
+        # Fetch and merge live book odds
+        print("  Fetching live book odds...")
+        book_odds = fetch_live_book_odds()
+        if not book_odds.empty:
+            results = results.merge(
+                book_odds[["player_name", "book_american_win", "book_implied_win", "best_book"]],
+                on="player_name",
+                how="left",
+            )
+            # Edge: our model win prob vs live book implied prob (positive = we like them more)
+            results["live_edge_vs_book"] = (
+                results["blended_win_prob"] - results["book_implied_win"].fillna(0)
             )
 
         save_results(results)
