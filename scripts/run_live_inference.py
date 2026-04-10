@@ -45,6 +45,7 @@ from augusta_model.model.live_model import (
     _prepare_features,
     predict_live,
 )
+from augusta_model.simulation.remaining_rounds_mc import simulate_remaining_rounds
 
 DATA_DIR = ROOT / "data" / "processed"
 OUTPUT_DIR = ROOT / "data" / "live"
@@ -589,58 +590,61 @@ def main():
                 how="left",
             )
 
-            # ── Cut-probability filter ────────────────────────────────────────
-            if "dg_make_cut" in results.columns:
-                cut_w = results["dg_make_cut"].fillna(1.0).clip(0, 1)
-                results["blended_win_prob"]   = results["blended_win_prob"]   * cut_w
-                results["blended_top10_prob"] = results["blended_top10_prob"] * cut_w
-                print(f"  Cut filter applied — {(cut_w < 0.5).sum()} players below 50% make-cut scaled down")
-
-            # ── Score-based position multiplier (our model stays primary) ──────
-            # Our live XGBoost correctly captures Augusta skill profiles but
-            # doesn't respond strongly enough to cumulative tournament position.
-            # Fix: multiply our model's output by exp(-score * k) then renorm.
-            # This is a Bayesian update from the leaderboard — OUR model leads,
-            # position adjusts it. DG is used only as a 20% calibration check.
-            #
-            # k scales with tournament progress:
-            #   R1 done (18 holes): k=0.25 — skill still dominates
-            #   R2 done (36 holes): k=0.45 — position increasingly important
-            #   R3 done (54 holes): k=0.65 — position dominant
-            #   R4 in progress:     k=0.80 — almost all position
-            median_thru = results["thru"].fillna(0).median() if "thru" in results.columns else 0
-            total_holes = (current_round - 1) * 18 + median_thru
-
-            # k calibrated so after R2 a 6-shot leader has ~50% win prob
-            # before the 20% DG blend (DG further nudges toward actual market)
-            if total_holes <= 18:
-                k = 0.05 + 0.07 * (total_holes / 18)        # 0.05→0.12 through R1
-            elif total_holes <= 36:
-                k = 0.12 + 0.08 * ((total_holes - 18) / 18) # 0.12→0.20 through R2
-            elif total_holes <= 54:
-                k = 0.20 + 0.10 * ((total_holes - 36) / 18) # 0.20→0.30 through R3
-            else:
-                k = 0.30 + 0.10 * ((total_holes - 54) / 18) # 0.30→0.40 through R4
-            k = min(k, 0.40)
-
-            # Use DG cumulative score as position signal (correct across rounds)
+            # ── Use DG cumulative score as display score ──────────────────────
             if "current_score" in results.columns:
                 results["current_score_to_par"] = results["current_score"]
 
-            scores = results["current_score_to_par"].fillna(0).values.astype(float)
-            pos_multiplier = np.exp(-scores * k)
+            # ── Remaining-rounds Monte Carlo ──────────────────────────────────
+            # Simulate rounds 3+4 for every player using:
+            #   - Their Augusta-specific skill from pre-tournament model (sg, model_score)
+            #   - Historical Augusta scoring distribution (mean +0.5, std 3.05/round)
+            #   - Field-wide correlation for weather/pin conditions
+            # Win% = fraction of 20k simulations where player finishes lowest.
+            # This naturally handles margin of lead, what each player needs to shoot,
+            # and the historical impossibility of -8 rounds at Augusta.
+            median_thru = results["thru"].fillna(0).median() if "thru" in results.columns else 18.0
+            total_holes = (current_round - 1) * 18 + median_thru
+            print(f"  Running remaining-rounds MC ({total_holes:.0f} total holes complete)...")
 
-            results["blended_win_prob"]   = results["blended_win_prob"]   * pos_multiplier
-            results["blended_top10_prob"] = results["blended_top10_prob"] * pos_multiplier
-            print(f"  Score multiplier: {total_holes:.0f} holes done, k={k:.2f} "
-                  f"(leader multiplier vs E = {np.exp(-scores.min()*k) / np.exp(0):.1f}x)")
+            mc_results = simulate_remaining_rounds(
+                live_df=results,
+                pre_df=predictions_df,
+                current_round=current_round,
+                median_thru=median_thru,
+                n_sims=20_000,
+            )
 
-            # 20% DG calibration blend — keeps us honest but we stay primary
-            if "dg_win_prob" in results.columns:
-                dg_win = results["dg_win_prob"].fillna(0)
-                dg_t10 = results["dg_top10_prob"].fillna(0) * 10
-                results["blended_win_prob"]   = 0.80 * results["blended_win_prob"]   + 0.20 * dg_win
-                results["blended_top10_prob"] = 0.80 * results["blended_top10_prob"] + 0.20 * dg_t10
+            # Merge MC probabilities back onto results
+            results = results.merge(
+                mc_results[["player_name", "mc_win_prob", "mc_top5_prob",
+                             "mc_top10_prob", "mc_projected_total", "strokes_back"]],
+                on="player_name",
+                how="left",
+            )
+
+            # MC is now our primary win signal; pre-tournament XGBoost adds Augusta
+            # skill insight especially early in the tournament.
+            # Blend: MC (position-aware) × pre-tournament Augusta skill weight
+            # Weight schedule: after R1 50/50, after R2 70% MC, R3 85% MC, R4 95% MC
+            if total_holes <= 18:
+                mc_weight = 0.35 + 0.15 * (total_holes / 18)   # 0.35→0.50
+            elif total_holes <= 36:
+                mc_weight = 0.50 + 0.20 * ((total_holes - 18) / 18)  # 0.50→0.70
+            elif total_holes <= 54:
+                mc_weight = 0.70 + 0.15 * ((total_holes - 36) / 18)  # 0.70→0.85
+            else:
+                mc_weight = 0.85 + 0.10 * ((total_holes - 54) / 18)  # 0.85→0.95
+            mc_weight = min(mc_weight, 0.95)
+            xgb_weight = 1.0 - mc_weight
+            print(f"  MC blend: {mc_weight:.0%} remaining-rounds MC + {xgb_weight:.0%} Augusta XGBoost")
+
+            mc_win  = results["mc_win_prob"].fillna(0)
+            mc_t10  = results["mc_top10_prob"].fillna(0) * 10
+            xgb_win = results["blended_win_prob"].fillna(0)
+            xgb_t10 = results["blended_top10_prob"].fillna(0)
+
+            results["blended_win_prob"]   = mc_weight * mc_win  + xgb_weight * xgb_win
+            results["blended_top10_prob"] = mc_weight * mc_t10  + xgb_weight * xgb_t10
 
             # Renormalise
             win_sum = results["blended_win_prob"].sum()
@@ -650,12 +654,8 @@ def main():
             if t10_sum > 0:
                 results["blended_top10_prob"] = results["blended_top10_prob"] * (10.0 / t10_sum)
 
-            # Use DG cumulative score as the display score (correct across rounds)
-            if "current_score" in results.columns:
-                results["current_score_to_par"] = results["current_score"]
-
-            # Edge: where our model disagrees with DG (positive = we like them more)
-            results["edge_vs_dg_win"] = results["blended_win_prob"] - results["dg_win_prob"].fillna(0)
+            # Edge vs DG
+            results["edge_vs_dg_win"]   = results["blended_win_prob"] - results["dg_win_prob"].fillna(0)
             results["edge_vs_dg_top10"] = results["blended_top10_prob"] - results["dg_top10_prob"].fillna(0) * 10
 
             # Recompute American odds and re-sort
