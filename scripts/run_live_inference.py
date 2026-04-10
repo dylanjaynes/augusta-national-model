@@ -508,9 +508,12 @@ def apply_position_correction(
 
     This blends in a Boltzmann-weighted position component:
       - k=0.7: each stroke better = exp(0.7) ≈ 2× more likely to win
-      - After R1 (25% of tournament done): pos_weight ≈ 0.65
-        → co-leader at -5 gets ~10-14% win vs 3.3% raw
-      - After R2 (50%): pos_weight ≈ 0.85 (capped)
+      - Weight ramp (pre-tournament skill still dominates early):
+          After R1 (25%): pos_weight = 0.30  → position nudges but skill leads
+          After R2 (50%): pos_weight = 0.52  → roughly even
+          After R3 (75%): pos_weight = 0.74  → position takes over
+          After R4 done:  pos_weight = 0.85  (cap)
+      Formula: min(0.85, 0.08 + tournament_pct * 0.88)
 
     Only activates when median holes_completed ≥ 15 (full round nearly done).
     """
@@ -539,8 +542,8 @@ def apply_position_correction(
     win_weights = np.exp(-scores * k)
     pos_win_prob = win_weights / win_weights.sum()
 
-    # Position weight: 0.65 after R1, capped at 0.85
-    pos_weight = min(0.85, 0.35 + tournament_pct * 1.2)
+    # Position weight: 0.30 after R1, 0.52 after R2, 0.74 after R3, 0.85 cap
+    pos_weight = min(0.85, 0.08 + tournament_pct * 0.88)
     print(
         f"  Position correction: pos_weight={pos_weight:.2f}, k={k}, "
         f"rounds_complete={rounds_complete:.1f} ({tournament_pct:.0%} of tournament)"
