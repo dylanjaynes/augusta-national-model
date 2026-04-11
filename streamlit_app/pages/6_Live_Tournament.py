@@ -93,6 +93,62 @@ def load_pretournament() -> pd.DataFrame | None:
 
 
 @st.cache_data(ttl=3600)
+def find_historical_match(leader_score: float, margin_over_2nd: float, within_5: int) -> dict | None:
+    """
+    Find the historical Masters R2 leaderboard most similar to the current one.
+    Only uses 2021-2025 (SG era, to-par scores). Similarity = weighted distance
+    on (leader score, lead margin, field compression).
+    """
+    hist_path = PROCESSED / "masters_unified.parquet"
+    if not hist_path.exists():
+        return None
+    hist = pd.read_parquet(hist_path)
+    hist = hist[hist["data_source"] == "dg_sg"].copy() if "data_source" in hist.columns else hist[hist["season"] >= 2021].copy()
+    results = []
+    for year in sorted(hist["season"].unique()):
+        yr = hist[hist["season"] == year].dropna(subset=["r1_score", "r2_score"]).copy()
+        yr["r2_cum"] = yr["r1_score"] + yr["r2_score"]
+        yr = yr.sort_values("r2_cum").reset_index(drop=True)
+        if len(yr) < 2:
+            continue
+        h_leader_score   = float(yr["r2_cum"].iloc[0])
+        h_margin         = float(yr["r2_cum"].iloc[1] - yr["r2_cum"].iloc[0])
+        h_within_5       = int((yr["r2_cum"] <= h_leader_score + 5).sum())
+        h_leader_name    = yr.iloc[0]["player_name"]
+        h_leader_won     = bool(yr.iloc[0].get("finish_num", 999) == 1)
+        winner_row       = yr[yr["finish_num"] == 1]
+        h_winner_name    = winner_row.iloc[0]["player_name"] if not winner_row.empty else "Unknown"
+        # Final winning margin
+        h_final_margin   = None
+        if not winner_row.empty:
+            ru = yr[yr["finish_num"] == 2]
+            if not ru.empty:
+                try:
+                    w_tot  = winner_row.iloc[0][["r1_score","r2_score","r3_score","r4_score"]].sum()
+                    ru_tot = ru.iloc[0][["r1_score","r2_score","r3_score","r4_score"]].sum()
+                    h_final_margin = int(round(ru_tot - w_tot))
+                except Exception:
+                    pass
+        # Top-6 historical leaderboard
+        top6 = yr.head(6)[["player_name","r2_cum","finish_pos","finish_num"]].copy()
+        top6["Score"] = top6["r2_cum"].apply(lambda x: "E" if int(x)==0 else f"{int(x):+d}")
+        top6["Finish"] = top6["finish_pos"].fillna(
+            top6["finish_num"].apply(lambda x: f"T{int(x)}" if pd.notna(x) and x < 900 else "MC")
+        )
+        # Similarity score (lower = closer match)
+        sim = (abs(h_leader_score - leader_score) * 1.0
+               + abs(h_margin - margin_over_2nd) * 1.5
+               + abs(h_within_5 - within_5) * 0.5)
+        results.append(dict(year=int(year), leader_name=h_leader_name, leader_score=h_leader_score,
+                            margin=h_margin, within_5=h_within_5, leader_won=h_leader_won,
+                            winner_name=h_winner_name, final_margin=h_final_margin,
+                            similarity=sim, top6=top6))
+    if not results:
+        return None
+    return min(results, key=lambda x: x["similarity"])
+
+
+@st.cache_data(ttl=3600)
 def load_course_stats() -> pd.DataFrame | None:
     p = PROCESSED / "course_hole_stats.parquet"
     if p.exists():
@@ -365,147 +421,199 @@ if live_df is not None:
     )
     st.dataframe(tbl, use_container_width=True, hide_index=True)
 
-    # ── Scenario Analysis ────────────────────────────────────────────────────
+    # ── Scenario Analysis (narrative, intuitive) ─────────────────────────────
     has_mc = "mc_win_prob" in rows.columns and rows["mc_win_prob"].notna().any()
-    with st.expander("📊 Scenario Analysis", expanded=False):
-        if has_mc:
-            # Identify the leaderboard leader by current score
-            if "current_score_to_par" in rows.columns:
-                leader_idx  = rows["current_score_to_par"].idxmin()
-                leader_name = rows.loc[leader_idx, "player_name"]
-                leader_score_str = score_str(rows.loc[leader_idx, "current_score_to_par"])
-            else:
-                leader_idx  = rows.index[0]
-                leader_name = rows.iloc[0]["player_name"]
-                leader_score_str = "—"
 
-            leader_win_pct   = rows.loc[leader_idx, "mc_win_prob"]
-            collapse_pct     = rows.loc[leader_idx, "mc_collapse_prob"] \
-                               if "mc_collapse_prob" in rows.columns else np.nan
-            leader_p90_total = rows.loc[leader_idx, "mc_proj_p90"] \
-                               if "mc_proj_p90" in rows.columns else np.nan
+    st.divider()
+    st.subheader("📊 Scenario Analysis")
 
-            # ── Section 1: Leader Win Distribution ───────────────────────────
-            st.markdown(f"### 🏆 Leader: {leader_name} ({leader_score_str})")
+    if has_mc and "current_score_to_par" in rows.columns:
+        # Core leader facts
+        all_rows = display.copy()   # full field, not just top_n
+        sc_sorted = all_rows.sort_values("current_score_to_par").reset_index(drop=True)
+        leader_r      = sc_sorted.iloc[0]
+        leader_name   = leader_r["player_name"]
+        leader_score  = int(leader_r["current_score_to_par"])
+        leader_win_pct = float(leader_r.get("mc_win_prob", 0))
+        collapse_pct   = float(leader_r.get("mc_collapse_prob", 0) or 0)
+        leader_p25     = leader_r.get("mc_proj_p25")
+        leader_p75     = leader_r.get("mc_proj_p75")
+        leader_p90     = leader_r.get("mc_proj_p90")
+        leader_proj    = leader_r.get("mc_projected_total")
+        second_r       = sc_sorted.iloc[1] if len(sc_sorted) > 1 else None
+        shots_ahead    = int(second_r["current_score_to_par"]) - leader_score if second_r is not None else 0
 
-            lc1, lc2, lc3 = st.columns(3)
-            lc1.metric("Win probability", f"{leader_win_pct:.1%}")
-            lc2.metric(
-                "Collapses (finishes outside top 3)",
-                f"{collapse_pct:.1%}" if pd.notna(collapse_pct) else "—",
-            )
-            lc3.metric(
-                "Worst-case finish (90th pct)",
-                f"{int(leader_p90_total):+d}" if pd.notna(leader_p90_total) else "—",
-            )
-
-            st.markdown(
-                f"**In {1 - leader_win_pct:.0%} of scenarios {leader_name} doesn't win — "
-                f"who does?**"
-            )
-
-            # Top 8 challengers by win prob (excluding leader)
-            challengers = (
-                rows[rows["player_name"] != leader_name]
-                .sort_values("mc_win_prob", ascending=False)
-                .head(8)
-            )
-            chal_rows = []
-            for _, r in challengers.iterrows():
-                wp = r["mc_win_prob"]
-                if wp < 0.002:
-                    continue
-                chal_rows.append({
-                    "Player":      r["player_name"],
-                    "Score":       score_str(r["current_score_to_par"])
-                                   if "current_score_to_par" in r else "—",
-                    "Win%":        pct_str(wp),
-                    "Proj Total":  f"{int(r['mc_projected_total']):+d}"
-                                   if pd.notna(r.get("mc_projected_total")) else "—",
-                    "Range":       (f"{int(r['mc_proj_p25']):+d} / {int(r['mc_proj_p75']):+d}"
-                                    if "mc_proj_p25" in r and pd.notna(r["mc_proj_p25"]) else "—"),
-                })
-            if chal_rows:
-                st.dataframe(pd.DataFrame(chal_rows), use_container_width=True, hide_index=True)
-
-            st.divider()
-
-            # ── Section 2: What It Takes to Win ──────────────────────────────
-            st.markdown("### 🎯 What It Takes to Win")
-            st.caption(
-                "For each player: their **projected pace** (skill/form estimate) vs the "
-                "**pace they actually need** in the scenarios where they win. "
-                "A wide gap = they need to go on a hot streak. A small gap = well-positioned."
-            )
-
-            win_rows = []
-            all_players_rows = rows.sort_values("mc_win_prob", ascending=False).head(12)
-            for _, r in all_players_rows.iterrows():
-                wp  = r["mc_win_prob"]
-                wss = r.get("mc_win_scenario_score")
-                proj_rd = r.get("expected_score_per_round")
-                need_rd = (
-                    (leader_proj_total - 1 - r.get("current_score_to_par", 0)) / rounds_remaining
-                    if leader_proj_total is not None and rounds_remaining > 0 else np.nan
-                )
-                if wp < 0.003 or pd.isna(wss):
-                    continue
-                win_rows.append({
-                    "Player":           r["player_name"],
-                    "Win%":             pct_str(wp),
-                    "Proj pace/rd":     f"{proj_rd:+.2f}" if pd.notna(proj_rd) else "—",
-                    "Need/rd (to win)": f"{need_rd:+.1f}" if pd.notna(need_rd) else "—",
-                    "Actual pace in wins": f"{wss:+.2f}" if pd.notna(wss) else "—",
-                    "Gap (need vs proj)": (
-                        f"{wss - proj_rd:+.2f}" if pd.notna(wss) and pd.notna(proj_rd) else "—"
-                    ),
-                })
-            if win_rows:
-                st.dataframe(pd.DataFrame(win_rows), use_container_width=True, hide_index=True)
-                st.caption(
-                    "**Actual pace in wins** = avg remaining score/round in simulations where that "
-                    "player wins. **Gap** = how far above their projected pace they need to run — "
-                    "smaller gap = more realistic path to victory."
-                )
-
-            st.divider()
-
-            # ── Section 3: Leader Collapse Scenarios ─────────────────────────
-            st.markdown("### 💥 Leader Collapse Scenarios")
-            st.caption(
-                f"What does a {leader_name} collapse look like? "
-                f"The distribution of their projected finish score across all simulations."
-            )
-            if "mc_proj_p25" in rows.columns:
-                leader_r = rows.loc[leader_idx]
-                c1, c2, c3, c4 = st.columns(4)
-                c1.metric("Best case (P10)", f"{int(leader_r.get('mc_proj_p25', 0) - 3):+d}" if pd.notna(leader_r.get("mc_proj_p25")) else "—")
-                c2.metric("Optimistic (P25)", f"{int(leader_r['mc_proj_p25']):+d}" if pd.notna(leader_r.get("mc_proj_p25")) else "—")
-                c3.metric("Median (P50)", f"{int(leader_r['mc_projected_total']):+d}" if pd.notna(leader_r.get("mc_projected_total")) else "—")
-                c4.metric("Pessimistic (P75)", f"{int(leader_r['mc_proj_p75']):+d}" if pd.notna(leader_r.get("mc_proj_p75")) else "—")
-
-                # How many players have P25 (optimistic) better than leader's P75 (pessimistic)?
-                leader_p75 = leader_r.get("mc_proj_p75")
-                if pd.notna(leader_p75) and "mc_proj_p25" in rows.columns:
-                    threats = rows[
-                        (rows["player_name"] != leader_name) &
-                        (rows["mc_proj_p25"] <= leader_p75)
-                    ].sort_values("mc_win_prob", ascending=False)
-                    if not threats.empty:
-                        st.markdown(
-                            f"**{len(threats)} player(s) have an optimistic scenario that beats "
-                            f"{leader_name}'s pessimistic finish ({int(leader_p75):+d}):**"
-                        )
-                        threat_tbl = threats.head(5)[["player_name", "current_score_to_par",
-                                                       "mc_proj_p25", "mc_win_prob"]].copy()
-                        threat_tbl.columns = ["Player", "Score", "Best proj", "Win%"]
-                        threat_tbl["Score"]    = threat_tbl["Score"].apply(score_str)
-                        threat_tbl["Best proj"] = threat_tbl["Best proj"].apply(
-                            lambda x: f"{int(x):+d}" if pd.notna(x) else "—")
-                        threat_tbl["Win%"]     = threat_tbl["Win%"].apply(pct_str)
-                        st.dataframe(threat_tbl, use_container_width=True, hide_index=True)
+        # ── Section 1: Leader status card ────────────────────────────────────
+        if collapse_pct < 0.05:
+            risk_color, risk_label, risk_emoji = "#28a745", "LOW RISK", "🟢"
+        elif collapse_pct < 0.15:
+            risk_color, risk_label, risk_emoji = "#e6a817", "MODERATE RISK", "🟡"
         else:
-            st.info("Run live inference to see scenario analysis.")
+            risk_color, risk_label, risk_emoji = "#dc3545", "HIGH RISK", "🔴"
+
+        # Floor narrative: compare leader's worst case vs challengers' best case
+        second_best_case = second_r.get("mc_proj_p25") if second_r is not None else None
+        if pd.notna(leader_p90) and pd.notna(second_best_case):
+            if leader_p90 < second_best_case:
+                floor_txt = (f"Even in {leader_name}'s worst 10% of scenarios he finishes "
+                             f"at **{score_str(leader_p90)}** — better than anyone else can "
+                             f"realistically reach ({score_str(second_best_case)} is the best "
+                             f"case for {second_r['player_name']}).")
+            else:
+                floor_txt = (f"In {leader_name}'s worst 10% of scenarios he finishes "
+                             f"**{score_str(leader_p90)}**. "
+                             f"{second_r['player_name']} could reach "
+                             f"**{score_str(second_best_case)}** in their best case — "
+                             f"a genuine threat if {leader_name} struggles.")
+        elif pd.notna(leader_p90):
+            floor_txt = f"Worst 10% scenario: {leader_name} finishes at **{score_str(leader_p90)}**."
+        else:
+            floor_txt = ""
+
+        lc1, lc2 = st.columns([1, 2])
+        with lc1:
+            st.metric(f"🏆 {leader_name} to win", f"{leader_win_pct:.0%}")
+            st.markdown(
+                f"<div style='background:{risk_color}22; border-left:4px solid {risk_color};"
+                f"padding:8px 12px; border-radius:4px; font-size:0.85em;'>"
+                f"<b style='color:{risk_color}'>{risk_emoji} {risk_label}</b><br>"
+                f"<span style='color:#666'>{collapse_pct:.1%} chance of blowing the lead</span>"
+                f"</div>", unsafe_allow_html=True)
+        with lc2:
+            st.markdown(f"**Leads by {shots_ahead} shots** with {rounds_remaining:.0f} rounds to play.")
+            if floor_txt:
+                st.markdown(floor_txt)
+            # Projected finish band for leader
+            if pd.notna(leader_p25) and pd.notna(leader_p75):
+                st.markdown(
+                    f"Projected finish range: **{score_str(leader_p25)}** *(best case)* "
+                    f"→ **{score_str(leader_proj)}** *(most likely)* "
+                    f"→ **{score_str(leader_p75)}** *(bad day)*"
+                )
+
+        st.markdown("")
+
+        # ── Section 2: Win probability bar ───────────────────────────────────
+        import plotly.graph_objects as go
+        prob_rows = sc_sorted[["player_name", "mc_win_prob"]].head(8).copy()
+        others = max(0.0, 1.0 - prob_rows["mc_win_prob"].sum())
+        if others > 0.005:
+            prob_rows = pd.concat([prob_rows,
+                pd.DataFrame([{"player_name": "Rest of field", "mc_win_prob": others}])],
+                ignore_index=True)
+        bar_colors = ["#C9A84C", "#4A90D9", "#6BB3E0", "#8CBFE0", "#A8CBE0",
+                      "#C4D8E0", "#B0BEC5", "#CFD8DC", "#E0E0E0"]
+        fig_bar = go.Figure()
+        for i, row in prob_rows.iterrows():
+            p = row["mc_win_prob"]
+            if p < 0.003:
+                continue
+            label = f"{row['player_name']} {p:.0%}" if p > 0.06 else f"{p:.0%}"
+            fig_bar.add_trace(go.Bar(
+                x=[p], y=[""], orientation="h", name=row["player_name"],
+                marker_color=bar_colors[min(i, len(bar_colors)-1)],
+                text=label, textposition="inside", insidetextanchor="middle",
+                hovertemplate=f"{row['player_name']}: {p:.1%}<extra></extra>",
+            ))
+        fig_bar.update_layout(
+            barmode="stack", height=70,
+            margin=dict(l=0, r=0, t=4, b=4), showlegend=False,
+            xaxis=dict(range=[0,1], visible=False),
+            yaxis=dict(visible=False),
+            paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
+        )
+        st.plotly_chart(fig_bar, use_container_width=True, config={"displayModeBar": False})
+
+        # ── Section 3: What challengers need ─────────────────────────────────
+        st.markdown(f"**In {1-leader_win_pct:.0%} of scenarios {leader_name} doesn't win — what would it take?**")
+
+        chal_rows_out = []
+        challengers = sc_sorted[sc_sorted["player_name"] != leader_name].head(9)
+        for _, r in challengers.iterrows():
+            wp        = float(r.get("mc_win_prob", 0))
+            shots_bk  = int(r["current_score_to_par"]) - leader_score
+            proj_rd   = r.get("expected_score_per_round")
+            wss       = r.get("mc_win_scenario_score")          # pace in winning sims
+
+            # What they need per round to beat leader's projection
+            if pd.notna(leader_proj) and rounds_remaining > 0:
+                need_total = (leader_proj - 1) - r["current_score_to_par"]
+                need_rd    = need_total / rounds_remaining
+            else:
+                need_rd = np.nan
+
+            # Human-readable difficulty
+            if pd.notna(need_rd) and pd.notna(proj_rd):
+                gap = need_rd - proj_rd   # how much better than projected they need
+                if gap > -0.5:
+                    difficulty = "🟢 Realistic"
+                elif gap > -2.0:
+                    difficulty = "🟡 Stretch"
+                else:
+                    difficulty = "🔴 Requires hot streak"
+            else:
+                difficulty = "—"
+
+            # Plain english: "needs to gain X shots on Rory over 2 rounds"
+            gain_needed = abs(shots_bk) + 1   # to beat, not tie
+            gain_desc = (f"needs to gain {gain_needed} shots on {leader_name} "
+                         f"over {rounds_remaining:.0f} round{'s' if rounds_remaining != 1 else ''}"
+                         if rounds_remaining > 0 else "—")
+
+            chal_rows_out.append({
+                "Player":        r["player_name"],
+                "Shots back":    abs(shots_bk),
+                "Win chance":    pct_str(wp),
+                "What they need": (f"{gain_desc} — "
+                                   f"avg {need_rd:+.1f}/rd vs projecting {proj_rd:+.1f}/rd"
+                                   if pd.notna(need_rd) and pd.notna(proj_rd) else gain_desc),
+                "Realistic?":    difficulty,
+            })
+
+        if chal_rows_out:
+            st.dataframe(pd.DataFrame(chal_rows_out), use_container_width=True, hide_index=True)
+
+        # ── Section 4: Historical comparison ─────────────────────────────────
+        st.divider()
+        st.subheader("📖 Closest Historical Match")
+        st.caption("Which past Masters did this leaderboard most resemble after Round 2?")
+
+        within_5_count = int((sc_sorted["current_score_to_par"] <= leader_score + 5).sum())
+        margin_over_2nd = float(second_r["current_score_to_par"] - leader_score) if second_r is not None else 0.0
+
+        match = find_historical_match(float(leader_score), margin_over_2nd, within_5_count)
+
+        if match is not None:
+            won_icon = "✅" if match["leader_won"] else "❌"
+            outcome  = (f"went on to **win by {match['final_margin']}**" if match["leader_won"]
+                        else f"**did not win** — **{match['winner_name']}** came from behind")
+            margin_s = (f"led by {int(match['margin'])} shot{'s' if int(match['margin'])!=1 else ''}"
+                        if match["margin"] > 0 else "was tied for the lead")
+
+            st.info(
+                f"{won_icon} **{match['year']} Masters** — {match['leader_name']} {margin_s} "
+                f"after R2 at **{score_str(match['leader_score'])}**, and {outcome}."
+            )
+
+            hcol1, hcol2 = st.columns(2)
+            with hcol1:
+                st.markdown(f"**{match['year']} R2 leaderboard** (historical)")
+                hist_tbl = match["top6"][["player_name","Score","Finish"]].rename(
+                    columns={"player_name":"Player","Score":"Score after R2","Finish":"Final finish"})
+                st.dataframe(hist_tbl, use_container_width=True, hide_index=True)
+
+            with hcol2:
+                st.markdown("**Today's leaderboard**")
+                today_tbl = sc_sorted.head(6)[["player_name","current_score_to_par","mc_win_prob"]].copy()
+                today_tbl["Score"] = today_tbl["current_score_to_par"].apply(score_str)
+                today_tbl["Win%"]  = today_tbl["mc_win_prob"].apply(pct_str)
+                st.dataframe(today_tbl[["player_name","Score","Win%"]].rename(
+                    columns={"player_name":"Player"}), use_container_width=True, hide_index=True)
+        else:
+            st.info("Historical data not available for comparison.")
+
+    else:
+        st.info("Run live inference to see scenario analysis.")
 
     # ── Movers section ──────────────────────────────────────────────────────
     if "rank_change" in display.columns:
