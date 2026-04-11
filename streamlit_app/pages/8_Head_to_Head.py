@@ -353,25 +353,40 @@ for col, player, row, win, top10, top20, score, pos, thru, card_cls in [
 
 st.markdown('<div class="section-header">Model Projections</div>', unsafe_allow_html=True)
 
-# ── 2a: Tournament winner (finishing position) ────────────────────────────────
-mu_a = float(safe_get(a, "mc_projected_total") or 0)
-mu_b = float(safe_get(b, "mc_projected_total") or 0)
+ROUND_STD = 3.5  # typical PGA Tour round-to-round scoring std
 
-def iqr_to_sigma(row):
-    try:
-        p25 = float(row.get("mc_proj_p25") or np.nan)
-        p75 = float(row.get("mc_proj_p75") or np.nan)
-        if not (np.isnan(p25) or np.isnan(p75)):
-            return max((p75 - p25) / 1.349, 1.0)
-    except Exception:
-        pass
-    return 4.0  # typical tournament scoring std
+# ── 2a: Tournament winner — remaining-rounds variance, not IQR collapse ───────
+# IQR-based sigma collapses mid-tournament (tight MC distribution around actual scores),
+# producing artificially extreme probs. Instead: use current score gap + variance
+# from the REMAINING rounds yet to be played.
 
-sigma_a = iqr_to_sigma(a)
-sigma_b = iqr_to_sigma(b)
-diff_mean = mu_a - mu_b  # positive → A projected to score worse (higher)
-diff_std = math.sqrt(sigma_a ** 2 + sigma_b ** 2)
-h2h_a_prob = norm_cdf(-diff_mean / diff_std) if diff_std > 0 else 0.5
+curr_score_a = float(safe_get(a, "current_score_to_par", "cumulative_score_to_par", "current_score") or 0)
+curr_score_b = float(safe_get(b, "current_score_to_par", "cumulative_score_to_par", "current_score") or 0)
+
+# Infer rounds completed from round_num field or thru-holes heuristic
+_round_num = safe_get(a, "round_num", "current_round")
+if _round_num is not None:
+    rounds_done = max(1, int(float(_round_num)))
+else:
+    _thru = safe_get(a, "thru", "holes_completed")
+    rounds_done = 2 if (_thru is not None and float(_thru) >= 18) else 1
+
+remaining_rounds = max(4 - rounds_done, 1)
+
+# remaining_diff_std = per-player ROUND_STD * sqrt(remaining_rounds) * sqrt(2) players
+remaining_diff_std = ROUND_STD * math.sqrt(remaining_rounds * 2)
+
+# Use projected total if available and non-trivial, else fall back to current score
+mu_a_raw = safe_get(a, "mc_projected_total")
+mu_b_raw = safe_get(b, "mc_projected_total")
+if mu_a_raw is not None and mu_b_raw is not None and (abs(float(mu_a_raw)) > 0.1 or abs(float(mu_b_raw)) > 0.1):
+    effective_diff = float(mu_a_raw) - float(mu_b_raw)
+    basis_note = "MC projected total"
+else:
+    effective_diff = curr_score_a - curr_score_b
+    basis_note = "current score to par"
+
+h2h_a_prob = min(0.99, max(0.01, norm_cdf(-effective_diff / remaining_diff_std))) if remaining_diff_std > 0 else 0.5
 h2h_b_prob = 1.0 - h2h_a_prob
 
 if h2h_a_prob >= h2h_b_prob:
@@ -380,6 +395,7 @@ else:
     tourn_leader, tourn_trailer, tourn_prob = player_b, player_a, h2h_b_prob
 
 leader_color = "#1565c0" if tourn_leader == player_a else "#c62828"
+score_gap = abs(curr_score_a - curr_score_b)
 st.markdown(f"""
 <div class="edge-card">
   <div class="projection-label">Tournament Winner — Better Final Position</div>
@@ -387,25 +403,44 @@ st.markdown(f"""
     Model gives <strong style="color:{leader_color}">{tourn_leader}</strong> a
     <strong>{tourn_prob:.0%}</strong> chance of finishing ahead of
     <strong>{tourn_trailer}</strong> over the full tournament.
-    (Based on projected total score to par.)
+    ({score_gap:.0f}-shot gap, {remaining_rounds} round{'s' if remaining_rounds != 1 else ''} remaining,
+    based on {basis_note}.)
   </div>
 </div>
 """, unsafe_allow_html=True)
 
-# ── 2b: Round winner probabilities ───────────────────────────────────────────
-sg_a = float(safe_get(a, "sg_total") or 0)
-sg_b = float(safe_get(b, "sg_total") or 0)
-round_std = 3.5  # typical PGA Tour round-to-round std
-sg_diff = sg_a - sg_b
-round_h2h_a = norm_cdf(sg_diff / (round_std * math.sqrt(2))) if round_std > 0 else 0.5
+# ── 2b: Round winner — season SG only (not cumulative tournament SG) ──────────
+# Live sg_total in the live CSV is the cumulative tournament SG (e.g. +15.50 after
+# 2 hot rounds). We must use the season SG from pre-tournament predictions, which
+# represents average per-round strokes gained vs field — the right predictor for
+# a single future round.
+
+sg_a_season = 0.0
+sg_b_season = 0.0
+if preds is not None:
+    pre_a = preds[preds["player_name"] == player_a]
+    pre_b = preds[preds["player_name"] == player_b]
+    if not pre_a.empty:
+        sg_a_season = float(safe_get(pre_a.iloc[0], "sg_total") or 0)
+    if not pre_b.empty:
+        sg_b_season = float(safe_get(pre_b.iloc[0], "sg_total") or 0)
+else:
+    # No pre-tournament file — use whatever sg_total is in df, warn in label
+    sg_a_season = float(safe_get(a, "sg_total") or 0)
+    sg_b_season = float(safe_get(b, "sg_total") or 0)
+
+# P(A lower score than B in one round) = Φ((sg_a - sg_b) / round_std)
+# sg diff is expected per-round margin; round_std is per-player round noise (≈3.5)
+# Using round_std (not *sqrt(2)) per user spec — difference in single round
+sg_diff_season = sg_a_season - sg_b_season
+round_h2h_a = min(0.99, max(0.01, norm_cdf(sg_diff_season / ROUND_STD)))
 round_h2h_b = 1.0 - round_h2h_a
 
 # Determine next round from live data
-thru_val = thru_a
 current_round = safe_get(a, "round_num", "current_round")
 if current_round is not None:
-    next_round = int(float(current_round))
-    round_label = f"Round {next_round}"
+    next_round = int(float(current_round)) + 1
+    round_label = f"Round {min(next_round, 4)}"
 else:
     round_label = "Next Round"
 
@@ -422,7 +457,7 @@ st.markdown(f"""
     Model expects <strong style="color:{rnd_color}">{rnd_leader}</strong> to
     post a lower score than <strong>{rnd_trailer}</strong> in {round_label.lower()}
     <strong>{rnd_prob:.0%}</strong> of the time.
-    (Based on season SG Total differential: {sg_a:+.2f} vs {sg_b:+.2f}.)
+    (Season SG Total: {sg_a_season:+.2f} vs {sg_b_season:+.2f}.)
   </div>
 </div>
 """, unsafe_allow_html=True)
