@@ -344,112 +344,135 @@ elif pre_df is not None:
 
 # ── Main Table ────────────────────────────────────────────────────────────────
 
+# Helper: build a tidy display DataFrame from the full field
+def _make_display_df(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Build the canonical display frame. All pct columns are floats × 100.
+    Edge columns:
+      Win Edge  = Our Win%  - book_implied_win      (sportsbook-based)
+      T10 Edge  = Our T10%  - dg_top10_prob         (DG model as book proxy)
+    """
+    d = df.copy()
+    d = d.sort_values("blended_win_prob", ascending=False).reset_index(drop=True)
+
+    out = pd.DataFrame()
+    out["Player"]    = d["player_name"]
+    out["R1"]        = d["current_score_to_par"].apply(score_str) \
+                       if "current_score_to_par" in d.columns else "—"
+    out["Our Win%"]  = (d["blended_win_prob"] * 100).round(1)
+    out["Our Odds"]  = d["model_american_win"].apply(format_american) \
+                       if "model_american_win" in d.columns else "—"
+    out["Book Odds"] = d["book_american_win"].apply(format_american) \
+                       if "book_american_win" in d.columns else "—"
+    # Win Edge: our win prob minus sportsbook implied win prob
+    if "book_implied_win" in d.columns:
+        out["Win Edge"] = ((d["blended_win_prob"] - d["book_implied_win"].fillna(0)) * 100).round(1)
+    else:
+        out["Win Edge"] = np.nan
+    out["Our T10%"]  = (d["blended_top10_prob"] * 100).round(1) \
+                       if "blended_top10_prob" in d.columns else np.nan
+    # Book T10%: DataGolf live model is the best available proxy
+    if "dg_top10_prob" in d.columns:
+        out["Book T10%"] = (d["dg_top10_prob"] * 100).round(1)
+        out["T10 Edge"]  = ((d["blended_top10_prob"] - d["dg_top10_prob"].fillna(0)) * 100).round(1) \
+                           if "blended_top10_prob" in d.columns else np.nan
+    else:
+        out["Book T10%"] = np.nan
+        out["T10 Edge"]  = np.nan
+    return out
+
+
+_PCT_CFG_WIN  = {"format": "%.1f%%"}
+_EDGE_CFG_WIN = {"format": "%+.1f%%"}
+_LEADERBOARD_CFG = {
+    "Our Win%":  st.column_config.NumberColumn("Our Win%",  format="%.1f%%"),
+    "Our T10%":  st.column_config.NumberColumn("Our T10%",  format="%.1f%%"),
+    "Book T10%": st.column_config.NumberColumn("Book T10%", format="%.1f%%"),
+    "Win Edge":  st.column_config.NumberColumn("Win Edge",  format="%+.1f%%"),
+    "T10 Edge":  st.column_config.NumberColumn("T10 Edge",  format="%+.1f%%"),
+}
+
+
 if live_df is not None:
-    display = live_df.copy()
+    display_raw = live_df.copy()
+    if "holes_completed" in display_raw.columns and min_holes > 0:
+        display_raw = display_raw[display_raw["holes_completed"] >= min_holes]
 
-    # Apply holes filter
-    if "holes_completed" in display.columns and min_holes > 0:
-        display = display[display["holes_completed"] >= min_holes]
+    full = _make_display_df(display_raw)
 
-    # Ensure key columns exist
-    for col in ["blended_top10_prob", "blended_win_prob", "live_rank"]:
-        if col not in display.columns:
-            display[col] = np.nan
+    # ── Value Bets: Outright ──────────────────────────────────────────────────
+    WIN_EDGE_THRESH = 1.0   # %
+    T10_EDGE_THRESH = 3.0   # %
 
-    # Always sort by win probability (descending) and reassign ranks
+    outright_bets = full[full["Win Edge"].fillna(0) > WIN_EDGE_THRESH].sort_values(
+        "Win Edge", ascending=False
+    )
+    t10_bets = full[full["T10 Edge"].fillna(0) > T10_EDGE_THRESH].sort_values(
+        "T10 Edge", ascending=False
+    )
+
+    if not outright_bets.empty or not t10_bets.empty:
+        st.subheader("🎯 Value Bets")
+        vb1, vb2 = st.columns(2)
+
+        with vb1:
+            st.markdown(f"**Outright — Win Edge > +{WIN_EDGE_THRESH:.0f}%**")
+            if outright_bets.empty:
+                st.info("No outright edges above threshold.")
+            else:
+                ob = outright_bets[["Player", "R1", "Our Odds", "Book Odds", "Win Edge"]].copy()
+                st.dataframe(ob, use_container_width=True, hide_index=True,
+                             column_config={"Win Edge": st.column_config.NumberColumn("Win Edge", format="%+.1f%%")})
+                st.caption(f"Win Edge = Our Win% minus Book implied win%. Book = best of DK/FD/BetMGM.")
+
+        with vb2:
+            st.markdown(f"**Top 10 — T10 Edge > +{T10_EDGE_THRESH:.0f}%**")
+            if t10_bets.empty:
+                st.info("No T10 edges above threshold.")
+            else:
+                tb = t10_bets[["Player", "R1", "Our T10%", "Book T10%", "T10 Edge"]].copy()
+                st.dataframe(tb, use_container_width=True, hide_index=True,
+                             column_config={
+                                 "Our T10%":  st.column_config.NumberColumn("Our T10%",  format="%.1f%%"),
+                                 "Book T10%": st.column_config.NumberColumn("Book T10%", format="%.1f%%"),
+                                 "T10 Edge":  st.column_config.NumberColumn("T10 Edge",  format="%+.1f%%"),
+                             })
+                st.caption("T10 Edge = Our T10% minus DataGolf live model T10% (best available book proxy).")
+
+        st.divider()
+
+    # ── Full Leaderboard ──────────────────────────────────────────────────────
+    rows = full.head(top_n)
+    st.subheader(f"📋 Full Leaderboard — Top {min(top_n, len(rows))} Players")
+    st.caption(
+        "Sorted by Our Win% (descending). "
+        "**Our Odds** = model American odds. **Book Odds** = best of DK/FD/BetMGM. "
+        "**Win Edge** = Our Win% minus Book implied win%. "
+        "**Book T10%** = DataGolf live model (best available T10 proxy). "
+        "**T10 Edge** = Our T10% minus Book T10%."
+    )
+    st.dataframe(rows, use_container_width=True, hide_index=True,
+                 column_config=_LEADERBOARD_CFG)
+
+    # ── Scenario Analysis (unchanged) ────────────────────────────────────────
+    display = display_raw.copy()
     display = display.sort_values("blended_win_prob", ascending=False).reset_index(drop=True)
     display["live_rank"] = range(1, len(display) + 1)
+    rows_raw = display.head(top_n)
 
-    # ── Single unified table ──────────────────────────────────────────────────
-    # Player | Score | M Win% | M Odds | Bk Odds | M T10% | DG T10% | Edge
-    # Sorted by M Win% descending. Simple st.dataframe — no column_config tricks.
-
-    rows = display.head(top_n).copy()
-
-    # ── Compute rounds remaining (for Need/Rd) ───────────────────────────────
-    if "holes_completed" in rows.columns:
-        avg_holes = rows["holes_completed"].mean()
+    if "holes_completed" in rows_raw.columns:
+        avg_holes = rows_raw["holes_completed"].mean()
         rounds_remaining = max(0.25, 4.0 - avg_holes / 18.0)
     else:
-        rounds_remaining = 2.0  # fallback: assume mid-tournament
-
-    # Leader's projected final total (lowest mc_projected_total wins)
-    if "mc_projected_total" in rows.columns and rows["mc_projected_total"].notna().any():
-        leader_proj_total = rows["mc_projected_total"].min()
-    elif "current_score_to_par" in rows.columns:
-        leader_proj_total = rows["current_score_to_par"].min()
-    else:
-        leader_proj_total = None
-
-    tbl = pd.DataFrame()
-    tbl["Player"]    = rows["player_name"].values
-    tbl["Score"]     = rows["current_score_to_par"].apply(score_str).values \
-                       if "current_score_to_par" in rows.columns else "—"
-    # MC projected finish (what the model expects them to shoot total)
-    if "mc_projected_total" in rows.columns:
-        tbl["Proj Total"] = rows["mc_projected_total"].apply(
-            lambda x: f"{int(x):+d}" if pd.notna(x) else "—"
-        ).values
-    # Projected scoring rate per remaining round (player skill + form)
-    if "expected_score_per_round" in rows.columns:
-        tbl["Proj/Rd"] = rows["expected_score_per_round"].apply(
-            lambda x: f"{x:+.2f}" if pd.notna(x) else "—"
-        ).values
-    # What the player needs to average per remaining round to win
-    if leader_proj_total is not None and "current_score_to_par" in rows.columns and rounds_remaining > 0:
-        need_vals = (leader_proj_total - 1 - rows["current_score_to_par"]) / rounds_remaining
-        tbl["Need/Rd"] = need_vals.apply(
-            lambda x: f"{x:+.1f}" if pd.notna(x) else "—"
-        ).values
-    # Projected finish range (P25–P75): the realistic band of outcomes
-    if "mc_proj_p25" in rows.columns and "mc_proj_p75" in rows.columns:
-        def _range_str(row):
-            p25, p75 = row["mc_proj_p25"], row["mc_proj_p75"]
-            if pd.isna(p25) or pd.isna(p75):
-                return "—"
-            return f"{int(p25):+d} / {int(p75):+d}"
-        tbl["Range (25/75)"] = rows.apply(_range_str, axis=1).values
-
-    tbl["MC Win%"] = rows["mc_win_prob"].apply(pct_num).values \
-                     if "mc_win_prob" in rows.columns else None
-    tbl["MC T10%"] = rows["mc_top10_prob"].apply(pct_num).values \
-                     if "mc_top10_prob" in rows.columns else None
-    tbl["M Win%"]  = rows["blended_win_prob"].apply(pct_num).values
-    tbl["M Odds"]  = rows["model_american_win"].apply(format_american).values \
-                     if "model_american_win" in rows.columns else "—"
-    tbl["Bk Odds"] = rows["book_american_win"].apply(format_american).values \
-                     if "book_american_win" in rows.columns else "—"
-    tbl["M T10%"]  = rows["blended_top10_prob"].apply(pct_num).values \
-                     if "blended_top10_prob" in rows.columns else None
-    tbl["DG T10%"] = rows["dg_top10_prob"].apply(pct_num).values \
-                     if "dg_top10_prob" in rows.columns else None
-    tbl["Edge"]    = rows["live_edge_vs_book"].apply(pct_num).values \
-                     if "live_edge_vs_book" in rows.columns else None
-
-    tbl_col_cfg = {c: st.column_config.NumberColumn(c, **_PCT_CFG)
-                   for c in ["MC Win%", "MC T10%", "M Win%", "M T10%", "DG T10%"]
-                   if c in tbl.columns}
-    if "Edge" in tbl.columns:
-        tbl_col_cfg["Edge"] = st.column_config.NumberColumn("Edge", **_EDGE_CFG)
-
-    st.subheader(f"Live Leaderboard — Top {min(top_n, len(tbl))} Players")
-    st.caption(
-        "Sorted by Model Win% (descending). "
-        "**Proj/Rd** = projected scoring rate per remaining round. "
-        "**Need/Rd** = pace needed to beat the leader's projected finish. "
-        "**Range (25/75)** = optimistic / pessimistic projected total. "
-        "**MC Win%** / **MC T10%** = Monte Carlo win / top-10 probability (position-aware, 20k sims). "
-        "Bk Odds = best of DK/FD/BetMGM. Edge = M Win% minus Book implied win%."
-    )
-    st.dataframe(tbl, use_container_width=True, hide_index=True, column_config=tbl_col_cfg)
+        rounds_remaining = 2.0
 
     # ── Scenario Analysis (narrative, intuitive) ─────────────────────────────
-    has_mc = "mc_win_prob" in rows.columns and rows["mc_win_prob"].notna().any()
+    has_mc = "mc_win_prob" in rows_raw.columns and rows_raw["mc_win_prob"].notna().any()
 
     st.divider()
     st.subheader("📊 Scenario Analysis")
 
-    if has_mc and "current_score_to_par" in rows.columns:
+    if has_mc and "current_score_to_par" in rows_raw.columns:
         # Core leader facts
         all_rows = display.copy()   # full field, not just top_n
         sc_sorted = all_rows.sort_values("current_score_to_par").reset_index(drop=True)
