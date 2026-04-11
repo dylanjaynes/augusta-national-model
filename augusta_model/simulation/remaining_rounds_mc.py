@@ -146,21 +146,21 @@ def _momentum_adjust(
     hot right now, but that heat decays rapidly across future rounds.
 
     Momentum weights (multiply by thru_holes/18 so early holes count less):
-      "current_rest" — rest of current round:     0.50 × (thru/18)
-      "next"         — next full round:           0.25 × (thru/18)
-      "later"        — rounds 2+ out:             0.10 × (thru/18)
+      "current_rest" — rest of current round:     0.25 × (thru/18)
+      "next"         — next full round:           0.10 × (thru/18)
+      "later"        — rounds 2+ out:             0.03 × (thru/18)
 
     For a player at thru=12 on a -9 pace:
-      current_rest weight = 0.50 × (12/18) = 0.333
-      next weight         = 0.25 × (12/18) = 0.167
-      later weight        = 0.10 × (12/18) = 0.067
+      current_rest weight = 0.25 × (12/18) = 0.167
+      next weight         = 0.10 × (12/18) = 0.067
+      later weight        = 0.03 × (12/18) = 0.020
 
     Minimum 3 holes required to trust the pace signal.
     """
     if current_pace is None or thru_holes < 3:
         return baseline
     fraction = min(thru_holes / 18.0, 1.0)
-    weights = {"current_rest": 0.50, "next": 0.25, "later": 0.10}
+    weights = {"current_rest": 0.25, "next": 0.10, "later": 0.03}
     w = weights.get(segment, 0.0) * fraction
     return baseline * (1.0 - w) + current_pace * w
 
