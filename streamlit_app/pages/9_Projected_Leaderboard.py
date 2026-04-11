@@ -42,17 +42,8 @@ df = live if live is not None else preds
 st.title("Projected Leaderboard")
 st.caption("Monte Carlo simulation projections — full field finish distribution.")
 
-# ── Build projected leaderboard ─────────────────────────────────────
+# ── Column resolution ────────────────────────────────────────────────
 
-required_cols = {
-    "mc_projected_total": "mc_projected_total",
-    "mc_proj_p25": "mc_proj_p25",
-    "mc_proj_p90": "mc_proj_p90",
-    "mc_win_prob": "win_prob" if "win_prob" in df.columns and "mc_win_prob" not in df.columns else "mc_win_prob",
-    "mc_top10_prob": "top10_prob" if "top10_prob" in df.columns and "mc_top10_prob" not in df.columns else "mc_top10_prob",
-}
-
-# Resolve column names flexibly
 def col(preferred, fallback=None):
     if preferred in df.columns:
         return preferred
@@ -60,13 +51,16 @@ def col(preferred, fallback=None):
         return fallback
     return None
 
-proj_col = col("mc_projected_total")
-p25_col = col("mc_proj_p25")
-p90_col = col("mc_proj_p90")
-win_col = col("mc_win_prob", "blended_win_prob")
-t10_col = col("mc_top10_prob", "blended_top10_prob")
-score_col = col("cumulative_score_to_par", "current_score")
-pos_col = col("current_pos")
+proj_col   = col("mc_projected_total")
+p25_col    = col("mc_proj_p25")
+p90_col    = col("mc_proj_p90")
+win_col    = col("mc_win_prob", "blended_win_prob")
+t10_col    = col("mc_top10_prob", "blended_top10_prob")
+# Prefer live DG current_score over model-internal cumulative_score_to_par
+score_col  = col("current_score", "cumulative_score_to_par")
+pos_col    = col("current_pos")
+esr_col    = col("expected_score_per_round", "inweek_mean")
+thru_col   = col("thru")
 
 if proj_col is None:
     st.warning(
@@ -74,7 +68,8 @@ if proj_col is None:
         "Showing pre-tournament model order."
     )
 
-# Work on a copy
+# ── Build projected leaderboard ──────────────────────────────────────
+
 lb = df[["player_name"]].copy()
 
 # Current score
@@ -89,13 +84,32 @@ if pos_col:
 else:
     lb["position"] = "—"
 
-# MC projected scores
+# Thru holes (for display)
+if thru_col:
+    lb["thru"] = df[thru_col]
+else:
+    lb["thru"] = np.nan
+
+# Expected score per round (skill signal)
+if esr_col:
+    lb["expected_score_per_round"] = pd.to_numeric(df[esr_col], errors="coerce")
+else:
+    lb["expected_score_per_round"] = np.nan
+
+# MC projected total
 if proj_col:
     lb["projected_total"] = pd.to_numeric(df[proj_col], errors="coerce")
 else:
-    # Fall back to pre-tournament predictions
-    win_prob_col = col("win_prob")
-    lb["projected_total"] = pd.to_numeric(df[win_prob_col], errors="coerce") * -100 if win_prob_col else np.nan
+    # Fallback: current_score + expected_score_per_round × remaining rounds
+    # Better than win_prob * -100 which is nonsensical
+    if score_col and esr_col:
+        current = pd.to_numeric(df[score_col], errors="coerce").fillna(0)
+        esr = pd.to_numeric(df[esr_col], errors="coerce").fillna(-0.5)
+        lb["projected_total"] = current + esr * 4  # rough: 4 rounds remaining
+    elif score_col:
+        lb["projected_total"] = pd.to_numeric(df[score_col], errors="coerce")
+    else:
+        lb["projected_total"] = np.nan
 
 if p25_col:
     lb["best_case_score"] = pd.to_numeric(df[p25_col], errors="coerce")
@@ -120,13 +134,13 @@ else:
 # Drop rows without projected total
 lb = lb.dropna(subset=["projected_total"]).copy()
 
-# Sort by projected_total ascending (lower score = better) for expected finish
+# Sort by projected_total ascending (lower score = better)
 lb = lb.sort_values("projected_total").reset_index(drop=True)
 lb["expected_finish"] = lb.index + 1
 
-# Best case finish: rank if this player shoots their best_case_score, others shoot median
+# Best/worst case finishes
 medians = lb["projected_total"].values
-best_scores = lb["best_case_score"].fillna(lb["projected_total"]).values
+best_scores  = lb["best_case_score"].fillna(lb["projected_total"]).values
 worst_scores = lb["worst_case_score"].fillna(lb["projected_total"]).values
 
 lb["best_case_finish"] = [
@@ -136,10 +150,11 @@ lb["worst_case_finish"] = [
     int(1 + np.sum(medians < worst_scores[i])) for i in range(len(lb))
 ]
 
-# Format helpers
+# ── Format helpers ───────────────────────────────────────────────────
+
 def fmt_score(val):
     try:
-        v = int(float(val))
+        v = int(round(float(val)))
         if v < 0:
             return str(v)
         elif v > 0:
@@ -156,7 +171,19 @@ def fmt_finish(val):
         return "—"
 
 
-# ── Sortable table ──────────────────────────────────────────────────
+def fmt_esr(val):
+    try:
+        v = float(val)
+        if v < 0:
+            return f"{v:.2f}"
+        elif v > 0:
+            return f"+{v:.2f}"
+        return "E"
+    except Exception:
+        return "—"
+
+
+# ── Sortable table ───────────────────────────────────────────────────
 st.subheader("Full Field Projections")
 
 sort_options = {
@@ -167,10 +194,11 @@ sort_options = {
     "Top-10 %": "t10_pct",
     "Best Case Finish": "best_case_finish",
     "Worst Case Finish": "worst_case_finish",
+    "Skill (Exp Score/Rd)": "expected_score_per_round",
 }
 sort_label = st.selectbox("Sort by", list(sort_options.keys()), index=0)
 sort_col = sort_options[sort_label]
-sort_asc = sort_label not in ("Win %", "Top-10 %")
+sort_asc = sort_label not in ("Win %", "Top-10 %", "Skill (Exp Score/Rd)")
 
 display = lb.sort_values(sort_col, ascending=sort_asc).reset_index(drop=True).copy()
 display.index = display.index + 1
@@ -178,26 +206,28 @@ display.index = display.index + 1
 table = pd.DataFrame({
     "Player": display["player_name"],
     "Pos": display["position"],
-    "Current Score": display["current_score"].apply(fmt_score),
-    "Projected Total": display["projected_total"].apply(fmt_score),
-    "Expected Finish": display["expected_finish"].apply(fmt_finish),
-    "Best Case": display["best_case_finish"].apply(fmt_finish),
-    "Worst Case": display["worst_case_finish"].apply(fmt_finish),
+    "Current": display["current_score"].apply(fmt_score),
+    "Proj Total": display["projected_total"].apply(fmt_score),
+    "Exp Finish": display["expected_finish"].apply(fmt_finish),
+    "Best": display["best_case_finish"].apply(fmt_finish),
+    "Worst": display["worst_case_finish"].apply(fmt_finish),
     "Win %": display["win_pct"],
     "Top-10 %": display["t10_pct"],
+    "Skill/Rd": display["expected_score_per_round"].apply(fmt_esr),
 })
 
+# Scale probabilities to percentage display
+table["Win %"]   = table["Win %"] * 100
+table["Top-10 %"] = table["Top-10 %"] * 100
+
 pct_cfg = {
-    "Win %": st.column_config.NumberColumn("Win %", format="%.1f%%"),
+    "Win %":   st.column_config.NumberColumn("Win %",    format="%.1f%%"),
     "Top-10 %": st.column_config.NumberColumn("Top-10 %", format="%.1f%%"),
 }
-# Scale to percentage display
-table["Win %"] = table["Win %"] * 100
-table["Top-10 %"] = table["Top-10 %"] * 100
 
 st.dataframe(table, use_container_width=True, column_config=pct_cfg, height=520)
 
-# ── Plotly range chart ──────────────────────────────────────────────
+# ── Plotly range chart ───────────────────────────────────────────────
 st.markdown("---")
 st.subheader("Finish Range Chart")
 st.caption(
@@ -205,39 +235,41 @@ st.caption(
     "Dot = Expected Finish. Players sorted by expected finish — tighter bars mean more consistent players."
 )
 
-# Show top N for readability
 max_players = st.slider("Players to show", min_value=10, max_value=len(lb), value=min(40, len(lb)), step=5)
 chart_df = lb.head(max_players).copy()
 
-# Color by win probability (gradient: gold for top contenders)
 max_win = chart_df["win_pct"].max() if chart_df["win_pct"].notna().any() else 1.0
 if max_win == 0:
     max_win = 1.0
 
+
 def win_color(win_p):
-    """Green for high win probability, gray for low."""
     if pd.isna(win_p):
         return "rgba(150,150,150,0.5)"
     frac = min(float(win_p) / float(max_win), 1.0)
-    r = int(46 + frac * (255 - 46))
-    g = int(204 - frac * (204 - 165))
+    r  = int(46  + frac * (255 - 46))
+    g  = int(204 - frac * (204 - 165))
     bl = int(113 - frac * (113 - 0))
     return f"rgba({r},{g},{bl},0.7)"
 
 
 fig = go.Figure()
 
-y_labels = chart_df["player_name"].tolist()
-best_finishes = chart_df["best_case_finish"].tolist()
-worst_finishes = chart_df["worst_case_finish"].tolist()
+y_labels       = chart_df["player_name"].tolist()
+best_finishes   = chart_df["best_case_finish"].tolist()
+worst_finishes  = chart_df["worst_case_finish"].tolist()
 expected_finishes = chart_df["expected_finish"].tolist()
-win_probs = chart_df["win_pct"].tolist()
+win_probs       = chart_df["win_pct"].tolist()
+proj_totals     = chart_df["projected_total"].tolist()
+curr_scores     = chart_df["current_score"].tolist()
 
-# Draw bars (best to worst case)
-for i, (player, best, worst, exp, wp) in enumerate(
-    zip(y_labels, best_finishes, worst_finishes, expected_finishes, win_probs)
+for i, (player, best, worst, exp, wp, proj, curr) in enumerate(
+    zip(y_labels, best_finishes, worst_finishes, expected_finishes, win_probs, proj_totals, curr_scores)
 ):
     color = win_color(wp)
+    curr_str = fmt_score(curr) if not pd.isna(curr) else "—"
+    proj_str = fmt_score(proj)
+    wp_str   = f"{wp:.1%}" if not pd.isna(wp) else "—"
     fig.add_trace(go.Scatter(
         x=[best, worst],
         y=[player, player],
@@ -246,15 +278,15 @@ for i, (player, best, worst, exp, wp) in enumerate(
         showlegend=False,
         hovertemplate=(
             f"<b>{player}</b><br>"
+            f"Current: {curr_str}<br>"
+            f"Projected: {proj_str}<br>"
             f"Best case: T{best}<br>"
             f"Expected: T{exp}<br>"
             f"Worst case: T{worst}<br>"
-            f"Win%: {wp:.1%}<extra></extra>" if not pd.isna(wp) else
-            f"<b>{player}</b><br>Best: T{best} | Exp: T{exp} | Worst: T{worst}<extra></extra>"
+            f"Win%: {wp_str}<extra></extra>"
         ),
     ))
 
-# Expected finish dots
 fig.add_trace(go.Scatter(
     x=expected_finishes,
     y=y_labels,
@@ -269,7 +301,6 @@ fig.add_trace(go.Scatter(
     hovertemplate="<b>%{y}</b><br>Expected: T%{x}<extra></extra>",
 ))
 
-# Vertical reference lines for cut / top-10
 fig.add_vline(x=10, line_dash="dot", line_color="green", opacity=0.4,
               annotation_text="Top 10", annotation_position="top")
 fig.add_vline(x=5, line_dash="dot", line_color="gold", opacity=0.5,
@@ -279,13 +310,12 @@ fig.update_layout(
     height=max(400, max_players * 22),
     xaxis=dict(
         title="Projected Finish Position",
-        autorange="reversed",  # 1 on the right (best) — flip so 1 is leftmost
         dtick=5,
     ),
     yaxis=dict(
         title="",
         categoryorder="array",
-        categoryarray=y_labels[::-1],  # best at top
+        categoryarray=y_labels[::-1],
         tickfont=dict(size=11),
     ),
     margin=dict(l=160, r=30, t=40, b=50),
@@ -294,8 +324,6 @@ fig.update_layout(
     hovermode="closest",
 )
 
-# Fix x-axis so 1 is on left (lower = better)
-fig.update_xaxes(autorange=True)
 fig.update_xaxes(range=[max(worst_finishes) + 2, 0])
 
 st.plotly_chart(fig, use_container_width=True)
