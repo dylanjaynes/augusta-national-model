@@ -715,7 +715,8 @@ def main():
                              "mc_top10_prob", "mc_projected_total", "strokes_back"]
             for c in ["expected_score_per_round", "inweek_mean",
                       "mc_proj_p25", "mc_proj_p75", "mc_proj_p90",
-                      "mc_collapse_prob", "mc_win_scenario_score"]:
+                      "mc_collapse_prob", "mc_win_scenario_score",
+                      "momentum_curr_round_mean", "momentum_r4_mean"]:
                 if c in mc_results.columns:
                     mc_merge_cols.append(c)
             results = results.merge(mc_results[mc_merge_cols], on="player_name", how="left")

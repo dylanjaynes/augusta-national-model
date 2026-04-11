@@ -9,7 +9,11 @@ Architecture:
     2. Pre-tournament skill (season-long SG weighted by Augusta course fit)
        — Blended with in-tournament form (weight shifts toward in-tourney as
          more rounds are complete)
-    3. Historical Augusta scoring variance (std ~3.0/round, field correlation 0.30)
+    3. Current-round momentum (Bayesian update from today's pace)
+       — If a player is -6 through 12 holes, their expected remaining scores
+         are updated: high weight on today's pace for the current round
+         remainder, decaying weight for future rounds.
+    4. Historical Augusta scoring variance (std ~3.0/round, field correlation 0.30)
 
 Win probability = fraction of 20k simulations where player finishes lowest.
 
@@ -25,6 +29,14 @@ SG-to-strokes regression coefficients (from Augusta 2021-2025):
   score = intercept + b_ott*sg_ott + b_app*sg_app + b_arg*sg_arg + b_putt*sg_putt
   1 SG gained → approximately -0.85 strokes (slightly less than theoretical 1.0
   because SG is measured against the entire PGA Tour field, not just Masters field)
+
+Momentum adjustment (Bayesian update from current-round pace):
+  current_pace = today_score / today_thru * 18  (extrapolated to full round)
+  evidence     = today_thru / 18                (fraction of round complete)
+  weight_r0    = min(0.85, evidence * 1.00)     (current round remainder)
+  weight_r1    = evidence * 0.35                (next full round)
+  weight_r2+   = evidence * 0.12                (further rounds)
+  adj_mean     = weight * current_pace + (1 - weight) * blended_mean
 """
 
 from __future__ import annotations
@@ -63,8 +75,58 @@ AUGUSTA_WEIGHTS = {
     "sg_putt": 0.259,
 }
 
+# Momentum decay by round offset from current round
+# round_offset 0 = current round remainder (high weight on today's pace)
+# round_offset 1 = next full round (moderate decay)
+# round_offset 2+ = further rounds (minimal effect)
+MOMENTUM_DECAY  = [1.00, 0.35, 0.12]
+MOMENTUM_CAP    = 0.85   # max weight on current pace (avoid all-in on 3-hole sample)
+
 N_SIMULATIONS = 20_000
 SEED = 42
+
+
+def _pace_adjusted_mean(
+    blended_mean: float,
+    today_score,
+    today_thru,
+    round_offset: int = 0,
+) -> float:
+    """
+    Bayesian update to per-round expected score using current-round momentum.
+
+    blended_mean: baseline expected score (strokes vs par per round) from
+                  in-week SG + pre-tournament blend.
+    today_score:  today's score to par through today_thru holes (e.g. -6).
+    today_thru:   holes completed today (0-18).
+    round_offset: 0 = current round remainder, 1 = next full round, 2+ = later.
+
+    Returns momentum-adjusted expected score per round.
+
+    Example — Scheffler -6 through 12 holes, baseline -2.5:
+      current_pace = -6 / 12 * 18 = -9.0
+      evidence     = 12 / 18 = 0.667
+      weight (r0)  = min(0.85, 0.667 * 1.00) = 0.667
+      adj_mean_r0  = 0.667 * (-9.0) + 0.333 * (-2.5) = -6.83  (current round remainder)
+      weight (r1)  = 0.667 * 0.35 = 0.233
+      adj_mean_r1  = 0.233 * (-9.0) + 0.767 * (-2.5) = -4.02  (next round)
+    """
+    if today_thru is None or today_score is None:
+        return blended_mean
+    try:
+        today_thru  = int(today_thru)
+        today_score = float(today_score)
+    except (TypeError, ValueError):
+        return blended_mean
+    if today_thru <= 0:
+        return blended_mean
+
+    current_pace = today_score / today_thru * 18.0
+    evidence     = today_thru / 18.0
+    decay        = MOMENTUM_DECAY[min(round_offset, len(MOMENTUM_DECAY) - 1)]
+    weight       = min(MOMENTUM_CAP, evidence * decay)
+
+    return weight * current_pace + (1.0 - weight) * blended_mean
 
 
 def _inweek_sg_to_strokes_per_round(
@@ -143,12 +205,17 @@ def build_player_distributions(
     Build per-player expected score and std for remaining rounds.
 
     Blends in-tournament SG (what they're doing THIS week) with
-    pre-tournament skill (season-long Augusta-weighted profile).
+    pre-tournament skill (season-long Augusta-weighted profile), then
+    applies a Bayesian momentum update from today's current-round pace.
 
     Blend weight toward in-tournament form:
       After R1:  40% in-week / 60% pre-tourney  (small sample)
       After R2:  65% in-week / 35% pre-tourney
       After R3:  85% in-week / 15% pre-tourney
+
+    Momentum update (applied ON TOP of blended mean):
+      Uses today_score / today_thru as evidence about current form.
+      Weight on today's pace decays with round offset (current round ≫ next round).
     """
     total_holes = (current_round - 1) * 18 + median_thru
     rounds_played = total_holes / 18.0
@@ -180,8 +247,36 @@ def build_player_distributions(
         # Pre-tournament expected score (season-long Augusta profile)
         pre_mean = _pretournament_expected_score(name, pre_df)
 
-        # Blended expected score per remaining round
+        # Blended expected score per remaining round (pre-momentum baseline)
         blended_mean = inweek_w * inweek_mean + pre_w * pre_mean
+
+        # ── Momentum adjustment (Bayesian update from today's pace) ───────────
+        # today_score: today's score to par (e.g. -6 for Scheffler mid-R3)
+        # today_thru:  holes completed today (e.g. 12)
+        # These may come from DG in-play merge (columns 'today' and 'thru')
+        today_score = player.get("today")
+        today_thru  = player.get("thru") or player.get("holes_completed")
+
+        # Sanitize: reject NaN/None
+        if today_score is not None:
+            try:
+                today_score = float(today_score)
+                if np.isnan(today_score):
+                    today_score = None
+            except (TypeError, ValueError):
+                today_score = None
+        if today_thru is not None:
+            try:
+                today_thru = int(float(today_thru))
+                if today_thru <= 0:
+                    today_thru = None
+            except (TypeError, ValueError):
+                today_thru = None
+
+        # Per-round adjusted means by future round offset
+        curr_round_mean  = _pace_adjusted_mean(blended_mean, today_score, today_thru, round_offset=0)
+        r_plus1_mean     = _pace_adjusted_mean(blended_mean, today_score, today_thru, round_offset=1)
+        r_plus2_mean     = _pace_adjusted_mean(blended_mean, today_score, today_thru, round_offset=2)
 
         # Std dev: player-specific variance (some players more consistent)
         # Slightly reduce std for players with very strong in-week SG (hot streaks are real)
@@ -194,12 +289,17 @@ def build_player_distributions(
             std_adj = 1.0
 
         records.append({
-            "player_name":    name,
-            "expected_score_per_round": blended_mean,
-            "round_std_adj":  std_adj,
-            "inweek_mean":    inweek_mean,
-            "pre_mean":       pre_mean,
-            "inweek_weight":  inweek_w,
+            "player_name":              name,
+            "expected_score_per_round": blended_mean,   # baseline (no momentum)
+            "curr_round_mean":          curr_round_mean,
+            "r_plus1_mean":             r_plus1_mean,
+            "r_plus2_mean":             r_plus2_mean,
+            "round_std_adj":            std_adj,
+            "inweek_mean":              inweek_mean,
+            "pre_mean":                 pre_mean,
+            "inweek_weight":            inweek_w,
+            "today_score":              today_score,
+            "today_thru":               today_thru,
         })
 
     return pd.DataFrame(records)
@@ -217,13 +317,22 @@ def simulate_remaining_rounds(
     Monte Carlo simulation of remaining rounds using player-specific distributions.
 
     live_df: must have player_name, current_score (cumulative to-par),
-             dg_make_cut, and live SG columns (sg_app, sg_ott, sg_arg, sg_putt)
+             dg_make_cut, and live SG columns (sg_app, sg_ott, sg_arg, sg_putt).
+             If 'today' and 'thru' columns are present, momentum adjustment is applied.
     pre_df:  pre-tournament predictions with model_score and rolling SG features
     current_round: 1-4
-    median_thru: median holes completed in current round
+    median_thru: median holes completed in current round (used as fallback for
+                 players missing individual thru data)
 
     Returns DataFrame with mc_win_prob, mc_top5_prob, mc_top10_prob,
     mc_projected_total, strokes_back, expected_score_per_round.
+
+    Momentum adjustment:
+      If a player is mid-round (thru > 0), their scoring distribution for the
+      current round remainder and future rounds is updated via a Bayesian blend
+      of their current-round pace and their pre-momentum blended mean.
+      This means a player shooting -6 through 12 holes gets credit for being
+      in peak form NOW — not just their historical average.
     """
     rng = np.random.default_rng(seed)
 
@@ -240,7 +349,7 @@ def simulate_remaining_rounds(
             "mc_projected_total", "strokes_back", "expected_score_per_round"
         ])
 
-    # Build player-specific scoring distributions
+    # Build player-specific scoring distributions (includes momentum adjustment)
     player_dists = build_player_distributions(
         players, pre_df, current_round, median_thru
     )
@@ -248,55 +357,102 @@ def simulate_remaining_rounds(
 
     current_scores = players["current_score"].fillna(0).values.astype(float)
 
-    # Remaining rounds
-    current_round_remaining = max(0.0, 1.0 - median_thru / 18.0)
+    # ── Per-player remaining round calculation ────────────────────────────────
+    # Use individual 'thru' if available; fall back to median_thru.
+    # This fixes the bug where all players were assigned the same
+    # current_round_remaining regardless of how far along they are.
+    if "thru" in players.columns:
+        player_thru = players["thru"].fillna(median_thru).astype(float).values
+    elif "holes_completed" in players.columns:
+        player_thru = players["holes_completed"].fillna(median_thru).astype(float).values
+    else:
+        player_thru = np.full(n_players, median_thru)
+
+    player_round_remaining = np.clip(1.0 - player_thru / 18.0, 0.0, 1.0)  # (n_players,)
     full_rounds_remaining   = max(0, 4 - current_round)
-    rounds_left = full_rounds_remaining + current_round_remaining
+
+    # Average rounds left (for field-shock std scaling)
+    avg_rounds_left = float(np.mean(player_round_remaining)) + full_rounds_remaining
 
     remaining_scores = None   # defined below when rounds_left > 0
-    if rounds_left <= 0:
+    if avg_rounds_left <= 0:
         final_scores = np.tile(current_scores, (n_sims, 1))
     else:
-        # Per-player expected total remaining score
-        expected_per_round = np.array([
-            player_dists.loc[name, "expected_score_per_round"]
-            if name in player_dists.index else DEFAULT_ROUND_MEAN
-            for name in players["player_name"]
-        ])
+        # ── Per-player expected remaining score (with momentum) ───────────────
+        # We build remaining_means as an (n_players,) array where each element
+        # is the player's total expected score over all remaining rounds/holes.
+        # Round offsets:
+        #   r_offset 0: current round remainder (per-player fraction, curr_round_mean)
+        #   r_offset 1: first full remaining round (r_plus1_mean)
+        #   r_offset 2+: subsequent rounds (r_plus2_mean)
         std_adj = np.array([
             player_dists.loc[name, "round_std_adj"]
             if name in player_dists.index else 1.0
             for name in players["player_name"]
         ])
 
-        # Round-specific mean (R3 harder by ~0.6 strokes vs R4)
         remaining_means = np.zeros(n_players)
-        rounds_accounted = 0.0
+        rounds_accounted = np.zeros(n_players)  # per-player tracking
+
         for r_offset in range(5):
-            if rounds_accounted >= rounds_left:
-                break
             abs_round = current_round + r_offset
             if abs_round > 4:
                 break
-            rp = ROUND_PARAMS.get(abs_round, {"mean": DEFAULT_ROUND_MEAN, "std": DEFAULT_ROUND_STD})
-            round_fraction = min(1.0, rounds_left - rounds_accounted)
-            if r_offset == 0:
-                round_fraction = current_round_remaining
-            # Adjust player mean by round-specific mean shift
-            round_mean_shift = rp["mean"] - DEFAULT_ROUND_MEAN
-            remaining_means += expected_per_round * round_fraction + round_mean_shift * round_fraction
-            rounds_accounted += round_fraction
 
-        # Field-wide shock (same for all players — weather, pins)
-        field_std = DEFAULT_ROUND_STD * np.sqrt(FIELD_CORR * rounds_left)
+            rp = ROUND_PARAMS.get(abs_round, {"mean": DEFAULT_ROUND_MEAN, "std": DEFAULT_ROUND_STD})
+            round_mean_shift = rp["mean"] - DEFAULT_ROUND_MEAN
+
+            if r_offset == 0:
+                # Current round: per-player fraction remaining
+                frac = player_round_remaining  # (n_players,)
+                # Use momentum-adjusted mean for current round remainder
+                per_round_means = np.array([
+                    float(player_dists.loc[name, "curr_round_mean"])
+                    if name in player_dists.index else DEFAULT_ROUND_MEAN
+                    for name in players["player_name"]
+                ])
+            elif r_offset == 1:
+                # Next full round: moderate momentum
+                frac = np.ones(n_players)
+                per_round_means = np.array([
+                    float(player_dists.loc[name, "r_plus1_mean"])
+                    if name in player_dists.index else DEFAULT_ROUND_MEAN
+                    for name in players["player_name"]
+                ])
+            else:
+                # Further rounds: minimal momentum
+                frac = np.ones(n_players)
+                per_round_means = np.array([
+                    float(player_dists.loc[name, "r_plus2_mean"])
+                    if name in player_dists.index else DEFAULT_ROUND_MEAN
+                    for name in players["player_name"]
+                ])
+
+            # Skip rounds where player has nothing left
+            active = frac > 0
+            if not active.any():
+                continue
+
+            remaining_means += (per_round_means * frac + round_mean_shift * frac)
+            rounds_accounted += frac
+
+        # ── Variance: field shock + individual noise ──────────────────────────
+        # Field shock is shared (same weather, same pin positions for everyone)
+        # Scale by avg_rounds_left for the field component
+        field_std = DEFAULT_ROUND_STD * np.sqrt(FIELD_CORR * max(avg_rounds_left, 0.1))
         field_shocks = rng.normal(0, field_std, n_sims)  # (n_sims,)
 
-        # Individual variance (independent across players)
-        indiv_std = DEFAULT_ROUND_STD * np.sqrt((1 - FIELD_CORR) * rounds_left)
-        # (n_sims, n_players) — player-adjusted std
+        # Individual variance scales by per-player rounds remaining
+        player_rounds_left = player_round_remaining + full_rounds_remaining
+        indiv_std_per_player = (
+            DEFAULT_ROUND_STD * np.sqrt(np.maximum((1.0 - FIELD_CORR) * player_rounds_left, 0.01))
+            * std_adj
+        )  # (n_players,)
+
+        # (n_sims, n_players) — each player's individual noise
         individual_scores = rng.normal(
-            remaining_means,                    # (n_players,) broadcast
-            indiv_std * std_adj,                # (n_players,)
+            remaining_means,        # (n_players,) broadcast as row
+            indiv_std_per_player,   # (n_players,)
             size=(n_sims, n_players),
         )
 
@@ -342,12 +498,13 @@ def simulate_remaining_rounds(
     # ── Win-scenario avg remaining score/round ────────────────────────────────
     # In simulations where player i wins, what do they avg per remaining round?
     win_scenarios_avg = np.full(n, np.nan)
-    if rounds_left > 0 and remaining_scores is not None:
+    if avg_rounds_left > 0 and remaining_scores is not None:
         for i in range(n):
             mask = (winners == i)
             if mask.sum() >= 20:
+                pr_left = float(player_rounds_left[i]) if player_rounds_left[i] > 0 else 1.0
                 win_scenarios_avg[i] = float(
-                    remaining_scores[mask, i].mean() / rounds_left
+                    remaining_scores[mask, i].mean() / pr_left
                 )
 
     result = players[["player_name", "current_score"]].copy()
@@ -368,6 +525,17 @@ def simulate_remaining_rounds(
     ]
     result["inweek_mean"] = [
         float(player_dists.loc[n, "inweek_mean"])
+        if n in player_dists.index else DEFAULT_ROUND_MEAN
+        for n in result["player_name"]
+    ]
+    # Expose momentum-adjusted means for diagnostics
+    result["momentum_curr_round_mean"] = [
+        float(player_dists.loc[n, "curr_round_mean"])
+        if n in player_dists.index else DEFAULT_ROUND_MEAN
+        for n in result["player_name"]
+    ]
+    result["momentum_r4_mean"] = [
+        float(player_dists.loc[n, "r_plus1_mean"])
         if n in player_dists.index else DEFAULT_ROUND_MEAN
         for n in result["player_name"]
     ]
