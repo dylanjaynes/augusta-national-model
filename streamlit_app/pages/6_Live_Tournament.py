@@ -8,7 +8,6 @@ Refreshes automatically every 2 minutes when live data is available.
 """
 
 import sys
-import time
 from pathlib import Path
 
 import numpy as np
@@ -31,50 +30,16 @@ LIVE_DIR.mkdir(parents=True, exist_ok=True)
 
 # ── Helpers ──────────────────────────────────────────────────────────────────
 
-_GITHUB_API_URL = (
-    "https://api.github.com/repos/dylanjaynes/augusta-national-model"
-    "/contents/data/live/live_predictions_latest.csv?ref=data-live"
-)
-_RAW_FALLBACK_URL = (
-    "https://raw.githubusercontent.com/dylanjaynes/augusta-national-model"
-    "/data-live/data/live/live_predictions_latest.csv"
-)
-
-@st.cache_data(ttl=55)   # slightly under 60s so two refreshes-per-cycle can't both hit stale cache
+@st.cache_data(ttl=120)
 def load_live_predictions() -> pd.DataFrame | None:
     """
-    Fetches live predictions via the GitHub Contents API (bypasses CDN — always latest).
-    Falls back to raw URL, then local file for offline development.
+    Load live predictions CSV.
 
-    GitHub Actions pushes to the orphan 'data-live' branch every 5 minutes.
-    This function is called on every page rerun; the page reruns every 90s
-    unconditionally (see bottom of file), so data is at most ~6 min stale.
+    On Streamlit Cloud: reads the file committed to the repo (data/live/live_predictions_latest.csv).
+    Updated whenever a new inference run is committed and pushed to main.
+
+    Local dev: same local file path.
     """
-    import base64, io, json, urllib.request
-
-    # ── Method 1: GitHub Contents API (guaranteed fresh, no CDN cache) ────────
-    try:
-        req = urllib.request.Request(
-            _GITHUB_API_URL,
-            headers={"Accept": "application/vnd.github.v3+json",
-                     "Cache-Control": "no-cache"},
-        )
-        with urllib.request.urlopen(req, timeout=8) as r:
-            meta = json.loads(r.read())
-        content = base64.b64decode(meta["content"])
-        return pd.read_csv(io.BytesIO(content))
-    except Exception:
-        pass
-
-    # ── Method 2: Raw URL with aggressive cache-busting ───────────────────────
-    try:
-        bust = int(time.time())          # unique per second — guarantees CDN miss
-        df = pd.read_csv(f"{_RAW_FALLBACK_URL}?t={bust}")
-        return df
-    except Exception:
-        pass
-
-    # ── Method 3: Local file (dev / offline) ──────────────────────────────────
     latest = LIVE_DIR / "live_predictions_latest.csv"
     if latest.exists():
         return pd.read_csv(latest)
@@ -919,12 +884,13 @@ with st.expander("ℹ️ How confidence works"):
     final position better than anywhere else on the course.
     """)
 
-# ── Unconditional auto-refresh ────────────────────────────────────────────────
-# Page fully renders to the user above, then sleeps 90s, then reruns from top.
-# Combined with ttl=55 cache on load_live_predictions(), data is always fresh.
-# GitHub Actions pushes new data to 'data-live' branch every 5 minutes.
-
-_REFRESH_SECS = 90
-st.caption(f"🔄 Auto-refreshing every {_REFRESH_SECS}s — data updated every 5 min by GitHub Actions")
-time.sleep(_REFRESH_SECS)
-st.rerun()
+# ── Auto-refresh via JavaScript (no spinner) ─────────────────────────────────
+# time.sleep() + st.rerun() causes a perpetual loading spinner.
+# JS-based reload triggers a full page refresh without blocking the script.
+_REFRESH_SECS = 120
+import streamlit.components.v1 as _components
+_components.html(
+    f"<script>setTimeout(function(){{window.parent.location.reload()}}, {_REFRESH_SECS * 1000});</script>",
+    height=0,
+)
+st.caption(f"🔄 Page reloads every {_REFRESH_SECS}s. Data is updated by running inference locally and pushing to GitHub.")
