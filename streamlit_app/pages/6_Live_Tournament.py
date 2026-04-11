@@ -31,30 +31,50 @@ LIVE_DIR.mkdir(parents=True, exist_ok=True)
 
 # ── Helpers ──────────────────────────────────────────────────────────────────
 
-@st.cache_data(ttl=60)
+_GITHUB_API_URL = (
+    "https://api.github.com/repos/dylanjaynes/augusta-national-model"
+    "/contents/data/live/live_predictions_latest.csv?ref=data-live"
+)
+_RAW_FALLBACK_URL = (
+    "https://raw.githubusercontent.com/dylanjaynes/augusta-national-model"
+    "/data-live/data/live/live_predictions_latest.csv"
+)
+
+@st.cache_data(ttl=55)   # slightly under 60s so two refreshes-per-cycle can't both hit stale cache
 def load_live_predictions() -> pd.DataFrame | None:
     """
-    Fetches live predictions from the data-live branch on GitHub (updated every 5 min
-    by GitHub Actions — pushes go there, NOT to main, so Streamlit never redeploys
-    just because data changed).
+    Fetches live predictions via the GitHub Contents API (bypasses CDN — always latest).
+    Falls back to raw URL, then local file for offline development.
 
-    Falls back to a local file for development / offline use.
-    TTL=60s so the page auto-refreshes data within 1 minute of a new push.
+    GitHub Actions pushes to the orphan 'data-live' branch every 5 minutes.
+    This function is called on every page rerun; the page reruns every 90s
+    unconditionally (see bottom of file), so data is at most ~6 min stale.
     """
-    # Bust the CDN cache by rotating a token every 60 seconds
-    cache_bust = int(time.time() // 60)
-    url = (
-        "https://raw.githubusercontent.com/"
-        "dylanjaynes/augusta-national-model/"
-        f"data-live/data/live/live_predictions_latest.csv"
-        f"?t={cache_bust}"
-    )
+    import base64, io, json, urllib.request
+
+    # ── Method 1: GitHub Contents API (guaranteed fresh, no CDN cache) ────────
     try:
-        df = pd.read_csv(url)
+        req = urllib.request.Request(
+            _GITHUB_API_URL,
+            headers={"Accept": "application/vnd.github.v3+json",
+                     "Cache-Control": "no-cache"},
+        )
+        with urllib.request.urlopen(req, timeout=8) as r:
+            meta = json.loads(r.read())
+        content = base64.b64decode(meta["content"])
+        return pd.read_csv(io.BytesIO(content))
+    except Exception:
+        pass
+
+    # ── Method 2: Raw URL with aggressive cache-busting ───────────────────────
+    try:
+        bust = int(time.time())          # unique per second — guarantees CDN miss
+        df = pd.read_csv(f"{_RAW_FALLBACK_URL}?t={bust}")
         return df
     except Exception:
         pass
-    # Local fallback (dev mode / no internet)
+
+    # ── Method 3: Local file (dev / offline) ──────────────────────────────────
     latest = LIVE_DIR / "live_predictions_latest.csv"
     if latest.exists():
         return pd.read_csv(latest)
@@ -184,12 +204,7 @@ with st.sidebar:
         index=0,
     )
 
-    auto_refresh = st.checkbox("Auto-refresh every 2 minutes", value=False)
-    if auto_refresh:
-        refresh_interval = st.slider("Refresh interval (sec)", 30, 600, 120)
-        st.info(f"Will refresh every {refresh_interval}s")
-        time.sleep(0.1)
-        st.rerun() if st.session_state.get("_refresh_count", 0) > 0 else None
+    st.info("🔄 Auto-refreshes every 90 seconds")
 
     st.divider()
 
@@ -610,9 +625,12 @@ with st.expander("ℹ️ How confidence works"):
     final position better than anywhere else on the course.
     """)
 
-# ── Auto-refresh ──────────────────────────────────────────────────────────────
+# ── Unconditional auto-refresh ────────────────────────────────────────────────
+# Page fully renders to the user above, then sleeps 90s, then reruns from top.
+# Combined with ttl=55 cache on load_live_predictions(), data is always fresh.
+# GitHub Actions pushes new data to 'data-live' branch every 5 minutes.
 
-if auto_refresh:
-    st.caption(f"Auto-refreshing every {refresh_interval} seconds...")
-    time.sleep(refresh_interval)
-    st.rerun()
+_REFRESH_SECS = 90
+st.caption(f"🔄 Auto-refreshing every {_REFRESH_SECS}s — data updated every 5 min by GitHub Actions")
+time.sleep(_REFRESH_SECS)
+st.rerun()
