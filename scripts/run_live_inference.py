@@ -695,6 +695,7 @@ def main():
                 results["blended_win_prob"] - results["book_implied_win"].fillna(0)
             )
 
+        results["current_round"] = current_round
         save_results(results)
 
     if args.loop:

@@ -275,7 +275,29 @@ def run_demo_inference():
 # ── Page Layout ───────────────────────────────────────────────────────────────
 
 st.title("🏌️ Live Tournament — Augusta National 2026")
-st.caption("Probabilities updated with hole-by-hole scoring data")
+# Round detection: prefer current_round column saved by inference script;
+# fall back to inferring from holes_completed (18 = round done, but ambiguous which round)
+def _detect_round_label(df: pd.DataFrame | None) -> str:
+    if df is None:
+        return ""
+    if "current_round" in df.columns:
+        r = int(df["current_round"].mode().iloc[0])
+        thru = df["thru"].fillna(18).median() if "thru" in df.columns else 18
+        if thru >= 18:
+            return f"Through Round {r}"
+        return f"Round {r} — {int(thru)} holes"
+    # Fallback: infer from holes_completed (cumulative or per-round)
+    max_holes = df["holes_completed"].max() if "holes_completed" in df.columns else 0
+    if max_holes > 36:
+        return "Through Round 3+"
+    if max_holes > 18:
+        return "Through Round 2"
+    # holes_completed=18 is ambiguous; check score magnitude as tiebreaker
+    if "current_score_to_par" in df.columns:
+        leader = df["current_score_to_par"].min()
+        if leader < -10:   # -11 or better is very unlikely in a single round
+            return "Through Round 2"
+    return "Round 1 in progress"
 
 # Sidebar controls
 with st.sidebar:
@@ -334,6 +356,10 @@ if live_mode == "Pre-Tournament Only":
 
 if live_mode == "Demo Mode" and live_df is None:
     st.info("No live data found. Click 'Run Demo Inference' in the sidebar to generate demo predictions.")
+
+# Update caption with round label now that we have data
+round_label = _detect_round_label(live_df)
+st.caption(f"{'**' + round_label + '** — p' if round_label else 'P'}robabilities updated with hole-by-hole scoring data")
 
 # ── Metrics Row ──────────────────────────────────────────────────────────────
 
@@ -422,7 +448,7 @@ def _make_display_df(df: pd.DataFrame, bankroll: float = 200.0,
 
     out = pd.DataFrame()
     out["Player"]        = d["player_name"]
-    out["R1"]            = d["current_score_to_par"].apply(score_str) \
+    out["Score"]         = d["current_score_to_par"].apply(score_str) \
                            if "current_score_to_par" in d.columns else "—"
 
     # ── Win columns ───────────────────────────────────────────────────────────
@@ -502,7 +528,7 @@ if live_df is not None:
             if outright_bets.empty:
                 st.info("No outright edges above threshold.")
             else:
-                ob = outright_bets[["Player", "R1", "Our Win Odds", "Book Win Odds",
+                ob = outright_bets[["Player", "Score", "Our Win Odds", "Book Win Odds",
                                     "Win Edge", "Win Kelly"]].copy()
                 st.dataframe(ob, use_container_width=True, hide_index=True,
                              column_config={
@@ -518,7 +544,7 @@ if live_df is not None:
             if t10_bets.empty:
                 st.info("No T10 edges above threshold.")
             else:
-                tb = t10_bets[["Player", "R1", "Our T10%", "Our T10 Odds", "Book T10%",
+                tb = t10_bets[["Player", "Score", "Our T10%", "Our T10 Odds", "Book T10%",
                                "T10 Edge", "T10 Kelly"]].copy()
                 st.dataframe(tb, use_container_width=True, hide_index=True,
                              column_config={
