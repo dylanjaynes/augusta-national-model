@@ -253,6 +253,7 @@ def simulate_remaining_rounds(
     full_rounds_remaining   = max(0, 4 - current_round)
     rounds_left = full_rounds_remaining + current_round_remaining
 
+    remaining_scores = None   # defined below when rounds_left > 0
     if rounds_left <= 0:
         final_scores = np.tile(current_scores, (n_sims, 1))
     else:
@@ -321,13 +322,46 @@ def simulate_remaining_rounds(
         top5_counts[i]  = (sorted_idx[:, :5]  == i).sum()
         top10_counts[i] = (sorted_idx[:, :10] == i).sum()
 
+    # ── Percentile projected totals ───────────────────────────────────────────
+    proj_p25 = np.percentile(final_scores, 25, axis=0)   # optimistic
+    proj_p75 = np.percentile(final_scores, 75, axis=0)   # pessimistic
+    proj_p90 = np.percentile(final_scores, 90, axis=0)   # worst case
+
+    # ── Per-player rank in each simulation (0 = winner) ──────────────────────
+    sim_ranks = np.argsort(np.argsort(final_scores, axis=1), axis=1)
+
+    # ── Collapse probability: for the current leader, P(finish outside top 3)
+    #    For all others: stored as their win probability (= comeback prob)  ───
+    leader_idx = int(np.argmin(current_scores))
+    collapse_prob = np.array([
+        float((sim_ranks[:, i] >= 3).mean()) if i == leader_idx
+        else float(win_counts[i] / n_sims)
+        for i in range(n)
+    ])
+
+    # ── Win-scenario avg remaining score/round ────────────────────────────────
+    # In simulations where player i wins, what do they avg per remaining round?
+    win_scenarios_avg = np.full(n, np.nan)
+    if rounds_left > 0 and remaining_scores is not None:
+        for i in range(n):
+            mask = (winners == i)
+            if mask.sum() >= 20:
+                win_scenarios_avg[i] = float(
+                    remaining_scores[mask, i].mean() / rounds_left
+                )
+
     result = players[["player_name", "current_score"]].copy()
-    result["mc_win_prob"]          = win_counts   / n_sims
-    result["mc_top5_prob"]         = top5_counts  / n_sims
-    result["mc_top10_prob"]        = top10_counts / n_sims
-    result["mc_projected_total"]   = np.round(np.median(final_scores, axis=0), 1)
-    result["strokes_back"]         = result["current_score"] - result["current_score"].min()
-    result["expected_score_per_round"] = [
+    result["mc_win_prob"]                = win_counts   / n_sims
+    result["mc_top5_prob"]               = top5_counts  / n_sims
+    result["mc_top10_prob"]              = top10_counts / n_sims
+    result["mc_projected_total"]         = np.round(np.median(final_scores, axis=0), 1)
+    result["mc_proj_p25"]                = np.round(proj_p25, 1)
+    result["mc_proj_p75"]                = np.round(proj_p75, 1)
+    result["mc_proj_p90"]                = np.round(proj_p90, 1)
+    result["mc_collapse_prob"]           = collapse_prob
+    result["mc_win_scenario_score"]      = win_scenarios_avg
+    result["strokes_back"]               = result["current_score"] - result["current_score"].min()
+    result["expected_score_per_round"]   = [
         float(player_dists.loc[n, "expected_score_per_round"])
         if n in player_dists.index else DEFAULT_ROUND_MEAN
         for n in result["player_name"]

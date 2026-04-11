@@ -15,6 +15,7 @@ import numpy as np
 import pandas as pd
 import streamlit as st
 
+
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 st.set_page_config(
@@ -30,8 +31,30 @@ LIVE_DIR.mkdir(parents=True, exist_ok=True)
 
 # ── Helpers ──────────────────────────────────────────────────────────────────
 
-@st.cache_data(ttl=30)
+@st.cache_data(ttl=60)
 def load_live_predictions() -> pd.DataFrame | None:
+    """
+    Fetches live predictions from the data-live branch on GitHub (updated every 5 min
+    by GitHub Actions — pushes go there, NOT to main, so Streamlit never redeploys
+    just because data changed).
+
+    Falls back to a local file for development / offline use.
+    TTL=60s so the page auto-refreshes data within 1 minute of a new push.
+    """
+    # Bust the CDN cache by rotating a token every 60 seconds
+    cache_bust = int(time.time() // 60)
+    url = (
+        "https://raw.githubusercontent.com/"
+        "dylanjaynes/augusta-national-model/"
+        f"data-live/data/live/live_predictions_latest.csv"
+        f"?t={cache_bust}"
+    )
+    try:
+        df = pd.read_csv(url)
+        return df
+    except Exception:
+        pass
+    # Local fallback (dev mode / no internet)
     latest = LIVE_DIR / "live_predictions_latest.csv"
     if latest.exists():
         return pd.read_csv(latest)
@@ -206,9 +229,6 @@ if live_mode == "Demo Mode" and live_df is None:
 # ── Metrics Row ──────────────────────────────────────────────────────────────
 
 if live_df is not None:
-    mod_time = pd.Timestamp((LIVE_DIR / "live_predictions_latest.csv").stat().st_mtime, unit="s")
-    age_min = (pd.Timestamp.now() - mod_time).total_seconds() / 60
-
     col1, col2, col3, col4 = st.columns(4)
     col1.metric("Players tracked", len(live_df))
 
@@ -224,7 +244,8 @@ if live_df is not None:
     else:
         col3.metric("Leader score", "—")
 
-    col4.metric("Last update", f"{age_min:.0f} min ago")
+    # Data freshness: Streamlit re-fetches from GitHub every 60s (ttl=60)
+    col4.metric("Data refresh", "~60s (auto)")
 
     st.divider()
 
@@ -295,6 +316,15 @@ if live_df is not None:
         tbl["Need/Rd"] = need_vals.apply(
             lambda x: f"{x:+.1f}" if pd.notna(x) else "—"
         ).values
+    # Projected finish range (P25–P75): the realistic band of outcomes
+    if "mc_proj_p25" in rows.columns and "mc_proj_p75" in rows.columns:
+        def _range_str(row):
+            p25, p75 = row["mc_proj_p25"], row["mc_proj_p75"]
+            if pd.isna(p25) or pd.isna(p75):
+                return "—"
+            return f"{int(p25):+d} / {int(p75):+d}"
+        tbl["Range (25/75)"] = rows.apply(_range_str, axis=1).values
+
     tbl["MC Win%"] = rows["mc_win_prob"].apply(pct_str).values \
                      if "mc_win_prob" in rows.columns else "—"
     tbl["M Win%"]  = rows["blended_win_prob"].apply(pct_str).values
@@ -313,11 +343,154 @@ if live_df is not None:
     st.subheader(f"Live Leaderboard — Top {min(top_n, len(tbl))} Players")
     st.caption(
         "Sorted by Model Win% (descending). "
-        "**Proj/Rd** = player's projected scoring rate per remaining round (skill + form). "
-        "**Need/Rd** = strokes-per-round needed to beat the leader's projected finish. "
-        "Bk Odds = best of DK/FD/BetMGM. DG T10% = DataGolf live model. Edge = M Win% minus Book implied win%."
+        "**Proj/Rd** = projected scoring rate per remaining round. "
+        "**Need/Rd** = pace needed to beat the leader's projected finish. "
+        "**Range (25/75)** = optimistic / pessimistic projected total. "
+        "Bk Odds = best of DK/FD/BetMGM. Edge = M Win% minus Book implied win%."
     )
     st.dataframe(tbl, use_container_width=True, hide_index=True)
+
+    # ── Scenario Analysis ────────────────────────────────────────────────────
+    has_mc = "mc_win_prob" in rows.columns and rows["mc_win_prob"].notna().any()
+    with st.expander("📊 Scenario Analysis", expanded=False):
+        if has_mc:
+            # Identify the leaderboard leader by current score
+            if "current_score_to_par" in rows.columns:
+                leader_idx  = rows["current_score_to_par"].idxmin()
+                leader_name = rows.loc[leader_idx, "player_name"]
+                leader_score_str = score_str(rows.loc[leader_idx, "current_score_to_par"])
+            else:
+                leader_idx  = rows.index[0]
+                leader_name = rows.iloc[0]["player_name"]
+                leader_score_str = "—"
+
+            leader_win_pct   = rows.loc[leader_idx, "mc_win_prob"]
+            collapse_pct     = rows.loc[leader_idx, "mc_collapse_prob"] \
+                               if "mc_collapse_prob" in rows.columns else np.nan
+            leader_p90_total = rows.loc[leader_idx, "mc_proj_p90"] \
+                               if "mc_proj_p90" in rows.columns else np.nan
+
+            # ── Section 1: Leader Win Distribution ───────────────────────────
+            st.markdown(f"### 🏆 Leader: {leader_name} ({leader_score_str})")
+
+            lc1, lc2, lc3 = st.columns(3)
+            lc1.metric("Win probability", f"{leader_win_pct:.1%}")
+            lc2.metric(
+                "Collapses (finishes outside top 3)",
+                f"{collapse_pct:.1%}" if pd.notna(collapse_pct) else "—",
+            )
+            lc3.metric(
+                "Worst-case finish (90th pct)",
+                f"{int(leader_p90_total):+d}" if pd.notna(leader_p90_total) else "—",
+            )
+
+            st.markdown(
+                f"**In {1 - leader_win_pct:.0%} of scenarios {leader_name} doesn't win — "
+                f"who does?**"
+            )
+
+            # Top 8 challengers by win prob (excluding leader)
+            challengers = (
+                rows[rows["player_name"] != leader_name]
+                .sort_values("mc_win_prob", ascending=False)
+                .head(8)
+            )
+            chal_rows = []
+            for _, r in challengers.iterrows():
+                wp = r["mc_win_prob"]
+                if wp < 0.002:
+                    continue
+                chal_rows.append({
+                    "Player":      r["player_name"],
+                    "Score":       score_str(r["current_score_to_par"])
+                                   if "current_score_to_par" in r else "—",
+                    "Win%":        pct_str(wp),
+                    "Proj Total":  f"{int(r['mc_projected_total']):+d}"
+                                   if pd.notna(r.get("mc_projected_total")) else "—",
+                    "Range":       (f"{int(r['mc_proj_p25']):+d} / {int(r['mc_proj_p75']):+d}"
+                                    if "mc_proj_p25" in r and pd.notna(r["mc_proj_p25"]) else "—"),
+                })
+            if chal_rows:
+                st.dataframe(pd.DataFrame(chal_rows), use_container_width=True, hide_index=True)
+
+            st.divider()
+
+            # ── Section 2: What It Takes to Win ──────────────────────────────
+            st.markdown("### 🎯 What It Takes to Win")
+            st.caption(
+                "For each player: their **projected pace** (skill/form estimate) vs the "
+                "**pace they actually need** in the scenarios where they win. "
+                "A wide gap = they need to go on a hot streak. A small gap = well-positioned."
+            )
+
+            win_rows = []
+            all_players_rows = rows.sort_values("mc_win_prob", ascending=False).head(12)
+            for _, r in all_players_rows.iterrows():
+                wp  = r["mc_win_prob"]
+                wss = r.get("mc_win_scenario_score")
+                proj_rd = r.get("expected_score_per_round")
+                need_rd = (
+                    (leader_proj_total - 1 - r.get("current_score_to_par", 0)) / rounds_remaining
+                    if leader_proj_total is not None and rounds_remaining > 0 else np.nan
+                )
+                if wp < 0.003 or pd.isna(wss):
+                    continue
+                win_rows.append({
+                    "Player":           r["player_name"],
+                    "Win%":             pct_str(wp),
+                    "Proj pace/rd":     f"{proj_rd:+.2f}" if pd.notna(proj_rd) else "—",
+                    "Need/rd (to win)": f"{need_rd:+.1f}" if pd.notna(need_rd) else "—",
+                    "Actual pace in wins": f"{wss:+.2f}" if pd.notna(wss) else "—",
+                    "Gap (need vs proj)": (
+                        f"{wss - proj_rd:+.2f}" if pd.notna(wss) and pd.notna(proj_rd) else "—"
+                    ),
+                })
+            if win_rows:
+                st.dataframe(pd.DataFrame(win_rows), use_container_width=True, hide_index=True)
+                st.caption(
+                    "**Actual pace in wins** = avg remaining score/round in simulations where that "
+                    "player wins. **Gap** = how far above their projected pace they need to run — "
+                    "smaller gap = more realistic path to victory."
+                )
+
+            st.divider()
+
+            # ── Section 3: Leader Collapse Scenarios ─────────────────────────
+            st.markdown("### 💥 Leader Collapse Scenarios")
+            st.caption(
+                f"What does a {leader_name} collapse look like? "
+                f"The distribution of their projected finish score across all simulations."
+            )
+            if "mc_proj_p25" in rows.columns:
+                leader_r = rows.loc[leader_idx]
+                c1, c2, c3, c4 = st.columns(4)
+                c1.metric("Best case (P10)", f"{int(leader_r.get('mc_proj_p25', 0) - 3):+d}" if pd.notna(leader_r.get("mc_proj_p25")) else "—")
+                c2.metric("Optimistic (P25)", f"{int(leader_r['mc_proj_p25']):+d}" if pd.notna(leader_r.get("mc_proj_p25")) else "—")
+                c3.metric("Median (P50)", f"{int(leader_r['mc_projected_total']):+d}" if pd.notna(leader_r.get("mc_projected_total")) else "—")
+                c4.metric("Pessimistic (P75)", f"{int(leader_r['mc_proj_p75']):+d}" if pd.notna(leader_r.get("mc_proj_p75")) else "—")
+
+                # How many players have P25 (optimistic) better than leader's P75 (pessimistic)?
+                leader_p75 = leader_r.get("mc_proj_p75")
+                if pd.notna(leader_p75) and "mc_proj_p25" in rows.columns:
+                    threats = rows[
+                        (rows["player_name"] != leader_name) &
+                        (rows["mc_proj_p25"] <= leader_p75)
+                    ].sort_values("mc_win_prob", ascending=False)
+                    if not threats.empty:
+                        st.markdown(
+                            f"**{len(threats)} player(s) have an optimistic scenario that beats "
+                            f"{leader_name}'s pessimistic finish ({int(leader_p75):+d}):**"
+                        )
+                        threat_tbl = threats.head(5)[["player_name", "current_score_to_par",
+                                                       "mc_proj_p25", "mc_win_prob"]].copy()
+                        threat_tbl.columns = ["Player", "Score", "Best proj", "Win%"]
+                        threat_tbl["Score"]    = threat_tbl["Score"].apply(score_str)
+                        threat_tbl["Best proj"] = threat_tbl["Best proj"].apply(
+                            lambda x: f"{int(x):+d}" if pd.notna(x) else "—")
+                        threat_tbl["Win%"]     = threat_tbl["Win%"].apply(pct_str)
+                        st.dataframe(threat_tbl, use_container_width=True, hide_index=True)
+        else:
+            st.info("Run live inference to see scenario analysis.")
 
     # ── Movers section ──────────────────────────────────────────────────────
     if "rank_change" in display.columns:

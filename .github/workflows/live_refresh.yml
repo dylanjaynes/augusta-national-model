@@ -13,13 +13,12 @@ jobs:
     timeout-minutes: 4  # Must finish before next 5-min window
 
     permissions:
-      contents: write  # Allows committing back to the repo
+      contents: write  # Allows pushing to data-live branch
 
     steps:
-      - name: Checkout repo
+      - name: Checkout main (code only — no data commits to main)
         uses: actions/checkout@v4
         with:
-          # Use a deploy key or PAT so the push triggers Streamlit Cloud
           token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Set up Python
@@ -39,15 +38,38 @@ jobs:
           mkdir -p data/live
           python3 scripts/run_live_inference.py --dg-live
 
-      - name: Commit and push updated predictions
+      - name: Push CSV to data-live branch (no Streamlit redeploy)
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          # Fetch the orphan data-live branch
+          git fetch origin data-live:refs/remotes/origin/data-live 2>/dev/null || true
+
+          # Add a worktree pointing at data-live (unique path per run avoids collisions)
+          WT_PATH="../data-live-wt-${{ github.run_id }}"
+          if git rev-parse --verify origin/data-live >/dev/null 2>&1; then
+            git worktree add "$WT_PATH" origin/data-live
+          else
+            git worktree add --orphan "$WT_PATH" data-live
+          fi
+
+          # Copy fresh CSV into the worktree
+          mkdir -p "${WT_PATH}/data/live"
+          cp data/live/live_predictions_latest.csv \
+             "${WT_PATH}/data/live/live_predictions_latest.csv"
+
+          # Commit and push from inside the worktree
+          cd "$WT_PATH"
           git add data/live/live_predictions_latest.csv
-          # Only commit if file actually changed
           if git diff --cached --quiet; then
             echo "No changes — data unchanged since last run"
           else
-            git commit -m "live: auto-refresh $(date -u '+%Y-%m-%d %H:%M UTC')"
-            git push
+            git commit -m "data: live refresh $(date -u '+%Y-%m-%d %H:%M UTC')"
+            git push origin HEAD:refs/heads/data-live
+            echo "✓ Pushed fresh predictions to data-live branch"
           fi
+
+          # Clean up worktree
+          cd -
+          git worktree remove --force "$WT_PATH"
