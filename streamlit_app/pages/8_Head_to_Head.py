@@ -180,6 +180,12 @@ def load_hole_by_hole():
     return pd.read_parquet(p) if p.exists() else None
 
 
+@st.cache_data(ttl=3600)
+def load_masters_sg_rounds():
+    p = PROCESSED / "masters_sg_rounds.parquet"
+    return pd.read_parquet(p) if p.exists() else None
+
+
 @st.cache_data(ttl=300)
 def load_matchup_odds():
     """Load matchup odds from DataGolf if available."""
@@ -190,6 +196,7 @@ def load_matchup_odds():
 live = load_live()
 preds = load_predictions()
 hbh = load_hole_by_hole()
+sg_rounds = load_masters_sg_rounds()
 matchup_odds = load_matchup_odds()
 
 if live is None and preds is None:
@@ -363,18 +370,33 @@ ROUND_STD = 3.5  # typical PGA Tour round-to-round scoring std
 curr_score_a = float(safe_get(a, "current_score_to_par", "cumulative_score_to_par", "current_score") or 0)
 curr_score_b = float(safe_get(b, "current_score_to_par", "cumulative_score_to_par", "current_score") or 0)
 
-# Infer rounds completed from round_num field or thru-holes heuristic
-_round_num = safe_get(a, "round_num", "current_round")
+# Fractional remaining rounds: (current_round - 1) + thru_holes/18 rounds are done.
+# e.g. R3 with thru=8 → 2 + 8/18 = 2.44 done → 1.56 remaining
+_round_num = safe_get(a, "current_round", "round_num")
+_thru = safe_get(a, "thru", "holes_completed")
+thru_holes = float(_thru) if (_thru is not None and not (isinstance(_thru, float) and np.isnan(_thru))) else 0.0
+
 if _round_num is not None:
-    rounds_done = max(1, int(float(_round_num)))
+    current_round_int = int(float(_round_num))
+    rounds_done_float = (current_round_int - 1) + min(thru_holes, 18) / 18
 else:
-    _thru = safe_get(a, "thru", "holes_completed")
-    rounds_done = 2 if (_thru is not None and float(_thru) >= 18) else 1
+    rounds_done_float = 2.0  # conservative fallback
 
-remaining_rounds = max(4 - rounds_done, 1)
+remaining_rounds = max(4.0 - rounds_done_float, 0.5)
 
-# remaining_diff_std = per-player ROUND_STD * sqrt(remaining_rounds) * sqrt(2) players
-remaining_diff_std = ROUND_STD * math.sqrt(remaining_rounds * 2)
+# Compute player B's remaining rounds separately for a correct joint variance
+_round_num_b = safe_get(b, "current_round", "round_num")
+_thru_b = safe_get(b, "thru", "holes_completed")
+thru_holes_b = float(_thru_b) if (_thru_b is not None and not (isinstance(_thru_b, float) and np.isnan(_thru_b))) else 0.0
+if _round_num_b is not None:
+    current_round_b = int(float(_round_num_b))
+    rounds_done_b = (current_round_b - 1) + min(thru_holes_b, 18) / 18
+else:
+    rounds_done_b = rounds_done_float
+remaining_b = max(4.0 - rounds_done_b, 0.5)
+
+# diff_std = ROUND_STD * sqrt(remaining_a + remaining_b) — correct joint variance
+remaining_diff_std = ROUND_STD * math.sqrt(remaining_rounds + remaining_b)
 
 # Use projected total if available and non-trivial, else fall back to current score
 mu_a_raw = safe_get(a, "mc_projected_total")
@@ -403,46 +425,47 @@ st.markdown(f"""
     Model gives <strong style="color:{leader_color}">{tourn_leader}</strong> a
     <strong>{tourn_prob:.0%}</strong> chance of finishing ahead of
     <strong>{tourn_trailer}</strong> over the full tournament.
-    ({score_gap:.0f}-shot gap, {remaining_rounds} round{'s' if remaining_rounds != 1 else ''} remaining,
+    ({score_gap:.0f}-shot gap, ~{(remaining_rounds + remaining_b) / 2:.1f} rounds remaining avg,
     based on {basis_note}.)
   </div>
 </div>
 """, unsafe_allow_html=True)
 
-# ── 2b: Round winner — season SG only (not cumulative tournament SG) ──────────
-# Live sg_total in the live CSV is the cumulative tournament SG (e.g. +15.50 after
-# 2 hot rounds). We must use the season SG from pre-tournament predictions, which
-# represents average per-round strokes gained vs field — the right predictor for
-# a single future round.
+# ── 2b: Round winner — Augusta career SG/round (not cumulative tournament SG) ──
+# live sg_total = cumulative tournament SG (+15.50 after 2 hot rounds = wrong).
+# preds file has no sg_total column.
+# Best available signal: career SG/round at Augusta from masters_sg_rounds.parquet
+# (per-round data 2021-2025, Augusta-specific, much more predictive than season-wide).
 
-sg_a_season = 0.0
-sg_b_season = 0.0
-if preds is not None:
-    pre_a = preds[preds["player_name"] == player_a]
-    pre_b = preds[preds["player_name"] == player_b]
-    if not pre_a.empty:
-        sg_a_season = float(safe_get(pre_a.iloc[0], "sg_total") or 0)
-    if not pre_b.empty:
-        sg_b_season = float(safe_get(pre_b.iloc[0], "sg_total") or 0)
-else:
-    # No pre-tournament file — use whatever sg_total is in df, warn in label
-    sg_a_season = float(safe_get(a, "sg_total") or 0)
-    sg_b_season = float(safe_get(b, "sg_total") or 0)
+def augusta_career_sg(player_name):
+    if sg_rounds is None or sg_rounds.empty:
+        return None, 0
+    p = sg_rounds[sg_rounds["player_name"] == player_name]
+    if p.empty:
+        return None, 0
+    sg_vals = p["sg_total"].dropna()
+    return (float(sg_vals.mean()), len(sg_vals)) if len(sg_vals) > 0 else (None, 0)
+
+sg_a_aug, rounds_a = augusta_career_sg(player_a)
+sg_b_aug, rounds_b = augusta_career_sg(player_b)
+
+# Fall back to 0 (field average) if no Augusta history
+sg_a_season = sg_a_aug if sg_a_aug is not None else 0.0
+sg_b_season = sg_b_aug if sg_b_aug is not None else 0.0
+
+sg_a_label = f"{sg_a_season:+.2f} ({rounds_a} Augusta rounds)" if sg_a_aug is not None else "no Augusta history"
+sg_b_label = f"{sg_b_season:+.2f} ({rounds_b} Augusta rounds)" if sg_b_aug is not None else "no Augusta history"
 
 # P(A lower score than B in one round) = Φ((sg_a - sg_b) / round_std)
-# sg diff is expected per-round margin; round_std is per-player round noise (≈3.5)
-# Using round_std (not *sqrt(2)) per user spec — difference in single round
 sg_diff_season = sg_a_season - sg_b_season
 round_h2h_a = min(0.99, max(0.01, norm_cdf(sg_diff_season / ROUND_STD)))
 round_h2h_b = 1.0 - round_h2h_a
 
-# Determine next round from live data
-current_round = safe_get(a, "round_num", "current_round")
-if current_round is not None:
-    next_round = int(float(current_round)) + 1
-    round_label = f"Round {min(next_round, 4)}"
+# Round label: current_round IS the round in progress (no +1)
+if _round_num is not None:
+    round_label = f"Round {current_round_int}"
 else:
-    round_label = "Next Round"
+    round_label = "Current Round"
 
 if round_h2h_a >= round_h2h_b:
     rnd_leader, rnd_trailer, rnd_prob = player_a, player_b, round_h2h_a
@@ -457,7 +480,7 @@ st.markdown(f"""
     Model expects <strong style="color:{rnd_color}">{rnd_leader}</strong> to
     post a lower score than <strong>{rnd_trailer}</strong> in {round_label.lower()}
     <strong>{rnd_prob:.0%}</strong> of the time.
-    (Season SG Total: {sg_a_season:+.2f} vs {sg_b_season:+.2f}.)
+    (Augusta career SG/round: {player_a} {sg_a_label} vs {player_b} {sg_b_label}.)
   </div>
 </div>
 """, unsafe_allow_html=True)
