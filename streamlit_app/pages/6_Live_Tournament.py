@@ -207,6 +207,19 @@ def format_american(v) -> str:
     return f"+{v}" if v >= 0 else str(v)
 
 
+def prob_to_american(p) -> str:
+    """Convert probability to American odds string (e.g. 0.15 → '+567')."""
+    try:
+        p = float(p)
+        if p <= 0 or p >= 1:
+            return "—"
+        if p >= 0.5:
+            return f"{round(-p / (1 - p) * 100):+d}"
+        return f"+{round((1 - p) / p * 100)}"
+    except (TypeError, ValueError):
+        return "—"
+
+
 def color_edge(val):
     """Return CSS color for edge value."""
     if pd.isna(val):
@@ -348,34 +361,48 @@ elif pre_df is not None:
 def _make_display_df(df: pd.DataFrame) -> pd.DataFrame:
     """
     Build the canonical display frame. All pct columns are floats × 100.
+
+    Probability source priority:
+      Win%  → mc_win_prob  (remaining-rounds Monte Carlo, 20k sims)
+              fallback: blended_win_prob (XGBoost+position blend)
+      T10%  → mc_top10_prob
+              fallback: blended_top10_prob
+
     Edge columns:
       Win Edge  = Our Win%  - book_implied_win      (sportsbook-based)
       T10 Edge  = Our T10%  - dg_top10_prob         (DG model as book proxy)
     """
     d = df.copy()
-    d = d.sort_values("blended_win_prob", ascending=False).reset_index(drop=True)
+
+    # Pick the best available win/t10 probability columns
+    has_mc_win = "mc_win_prob" in d.columns and d["mc_win_prob"].notna().any()
+    has_mc_t10 = "mc_top10_prob" in d.columns and d["mc_top10_prob"].notna().any()
+
+    win_col = "mc_win_prob"  if has_mc_win else "blended_win_prob"
+    t10_col = "mc_top10_prob" if has_mc_t10 else "blended_top10_prob"
+
+    d = d.sort_values(win_col, ascending=False).reset_index(drop=True)
 
     out = pd.DataFrame()
     out["Player"]    = d["player_name"]
     out["R1"]        = d["current_score_to_par"].apply(score_str) \
                        if "current_score_to_par" in d.columns else "—"
-    out["Our Win%"]  = (d["blended_win_prob"] * 100).round(1)
-    out["Our Odds"]  = d["model_american_win"].apply(format_american) \
-                       if "model_american_win" in d.columns else "—"
+    out["Our Win%"]  = (d[win_col] * 100).round(1)
+    # Compute Our Odds directly from MC win probability (not stale blended american)
+    out["Our Odds"]  = d[win_col].apply(prob_to_american)
     out["Book Odds"] = d["book_american_win"].apply(format_american) \
                        if "book_american_win" in d.columns else "—"
-    # Win Edge: our win prob minus sportsbook implied win prob
+    # Win Edge: our MC win prob minus sportsbook implied win prob
     if "book_implied_win" in d.columns:
-        out["Win Edge"] = ((d["blended_win_prob"] - d["book_implied_win"].fillna(0)) * 100).round(1)
+        out["Win Edge"] = ((d[win_col] - d["book_implied_win"].fillna(0)) * 100).round(1)
     else:
         out["Win Edge"] = np.nan
-    out["Our T10%"]  = (d["blended_top10_prob"] * 100).round(1) \
-                       if "blended_top10_prob" in d.columns else np.nan
+    out["Our T10%"]  = (d[t10_col] * 100).round(1) if t10_col in d.columns else np.nan
     # Book T10%: DataGolf live model is the best available proxy
     if "dg_top10_prob" in d.columns:
         out["Book T10%"] = (d["dg_top10_prob"] * 100).round(1)
-        out["T10 Edge"]  = ((d["blended_top10_prob"] - d["dg_top10_prob"].fillna(0)) * 100).round(1) \
-                           if "blended_top10_prob" in d.columns else np.nan
+        out["T10 Edge"]  = ((d[t10_col] - d["dg_top10_prob"].fillna(0)) * 100).round(1) \
+                           if t10_col in d.columns else np.nan
     else:
         out["Book T10%"] = np.nan
         out["T10 Edge"]  = np.nan
@@ -444,9 +471,10 @@ if live_df is not None:
     # ── Full Leaderboard ──────────────────────────────────────────────────────
     rows = full.head(top_n)
     st.subheader(f"📋 Full Leaderboard — Top {min(top_n, len(rows))} Players")
+    _win_src = "MC 20k-sim win prob" if ("mc_win_prob" in display_raw.columns and display_raw["mc_win_prob"].notna().any()) else "XGBoost blend"
     st.caption(
-        "Sorted by Our Win% (descending). "
-        "**Our Odds** = model American odds. **Book Odds** = best of DK/FD/BetMGM. "
+        f"Sorted by Our Win% (descending) — source: **{_win_src}**. "
+        "**Our Odds** = Our Win% as American odds. **Book Odds** = best of DK/FD/BetMGM. "
         "**Win Edge** = Our Win% minus Book implied win%. "
         "**Book T10%** = DataGolf live model (best available T10 proxy). "
         "**T10 Edge** = Our T10% minus Book T10%."
@@ -456,7 +484,8 @@ if live_df is not None:
 
     # ── Scenario Analysis (unchanged) ────────────────────────────────────────
     display = display_raw.copy()
-    display = display.sort_values("blended_win_prob", ascending=False).reset_index(drop=True)
+    _sort_col = "mc_win_prob" if ("mc_win_prob" in display.columns and display["mc_win_prob"].notna().any()) else "blended_win_prob"
+    display = display.sort_values(_sort_col, ascending=False).reset_index(drop=True)
     display["live_rank"] = range(1, len(display) + 1)
     rows_raw = display.head(top_n)
 
