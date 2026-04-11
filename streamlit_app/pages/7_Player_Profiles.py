@@ -101,6 +101,14 @@ LIVE_DIR = ROOT / "data" / "live"
 
 CHART_CONFIG = {"displayModeBar": False}
 
+# ── Historical benchmark SG profiles ─────────────────────────────────────────
+# Precomputed from masters_unified.parquet — winners and top-10 finishers 2021-2025
+# (SG data only available from 2021 onward via DataGolf)
+# Order matches sg_keys: [sg_ott, sg_app, sg_arg, sg_putt]
+# Champions: Matsuyama 2021, Scheffler 2022, Rahm 2023, Scheffler 2024, McIlroy 2025
+CHAMPION_SG = [0.946, 1.446, 1.269, 0.316]   # avg Masters winner profile (n=5)
+TOP10_SG    = [0.525, 0.842, 0.650, 0.565]   # avg top-10 finisher profile (all SG years)
+
 
 # ── Data Loaders ──────────────────────────────────────────────────────────────
 
@@ -528,9 +536,32 @@ else:
     cats_closed = sg_labels + [sg_labels[0]]
 
     primary_sg = player_sg_week or player_sg_season
-    r_max = max(max(abs(v) for v in primary_sg), 0.5) * 1.35
+    all_vals = list(primary_sg) + CHAMPION_SG + TOP10_SG
+    r_max = max(max(abs(v) for v in all_vals), 0.5) * 1.35
 
     fig_radar = go.Figure()
+
+    # Avg Top-10 finisher — green dotted
+    top10_closed = TOP10_SG + [TOP10_SG[0]]
+    fig_radar.add_trace(go.Scatterpolar(
+        r=top10_closed,
+        theta=cats_closed,
+        fill="none",
+        name="Avg Top 10",
+        line=dict(color="#2e7d32", width=1.5, dash="dot"),
+        hovertemplate="%{theta}: %{r:+.2f}<extra>Avg Top 10</extra>",
+    ))
+
+    # Avg Masters champion — gold dashed
+    champ_closed = CHAMPION_SG + [CHAMPION_SG[0]]
+    fig_radar.add_trace(go.Scatterpolar(
+        r=champ_closed,
+        theta=cats_closed,
+        fill="none",
+        name="Avg Champion",
+        line=dict(color="#f9a825", width=2, dash="dash"),
+        hovertemplate="%{theta}: %{r:+.2f}<extra>Avg Champion</extra>",
+    ))
 
     # Season avg — thin gray dashed
     if player_sg_season is not None:
@@ -541,11 +572,11 @@ else:
             fill="toself",
             name="Season Avg",
             line=dict(color="#9e9e9e", width=1.5, dash="dash"),
-            fillcolor="rgba(158,158,158,0.10)",
+            fillcolor="rgba(158,158,158,0.08)",
             hovertemplate="%{theta}: %{r:+.2f}<extra>Season</extra>",
         ))
 
-    # This Week — bold colored
+    # This Week — bold blue (primary)
     if player_sg_week is not None:
         week_closed = player_sg_week + [player_sg_week[0]]
         fig_radar.add_trace(go.Scatterpolar(
@@ -576,10 +607,10 @@ else:
             ),
             bgcolor="white",
         ),
-        height=280,
+        height=320,
         margin=dict(l=20, r=20, t=40, b=20),
         showlegend=True,
-        legend=dict(orientation="h", yanchor="bottom", y=-0.12, xanchor="center", x=0.5, font=dict(size=13)),
+        legend=dict(orientation="h", yanchor="bottom", y=-0.20, xanchor="center", x=0.5, font=dict(size=12)),
         paper_bgcolor="white",
     )
 
