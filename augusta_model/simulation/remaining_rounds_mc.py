@@ -305,10 +305,25 @@ def simulate_remaining_rounds(
 
     current_scores = players["current_score"].fillna(0).values.astype(float)
 
-    # Remaining rounds
-    current_round_remaining = max(0.0, 1.0 - median_thru / 18.0)
-    full_rounds_remaining   = max(0, 4 - current_round)
-    rounds_left = full_rounds_remaining + current_round_remaining
+    # ── Per-player remaining round calculation ────────────────────────────────
+    # Use individual 'thru' so a player through 12 holes (6 left) is not treated
+    # the same as a player through 6 holes (12 left). current_score already
+    # incorporates each player's actual holes played, so we only need to simulate
+    # the correct remaining fraction per player.
+    if "thru" in players.columns:
+        player_thru_arr = players["thru"].fillna(median_thru).astype(float).values
+    elif "holes_completed" in players.columns:
+        player_thru_arr = players["holes_completed"].fillna(median_thru).astype(float).values
+    else:
+        player_thru_arr = np.full(n_players, float(median_thru))
+
+    # Per-player fraction of current round still remaining (0 = done, 1 = not started)
+    player_round_remaining = np.clip(1.0 - player_thru_arr / 18.0, 0.0, 1.0)  # (n_players,)
+    full_rounds_remaining  = max(0, 4 - current_round)
+    player_rounds_left     = player_round_remaining + full_rounds_remaining    # (n_players,)
+
+    # Scalar rounds_left (field average) for field-shock variance scaling
+    rounds_left = float(np.mean(player_round_remaining)) + full_rounds_remaining
 
     remaining_scores = None   # defined below when rounds_left > 0
     if rounds_left <= 0:
@@ -331,36 +346,41 @@ def simulate_remaining_rounds(
         exp_next_round   = _get_dist_col("expected_next_round",   DEFAULT_ROUND_MEAN)
         exp_later_round  = _get_dist_col("expected_later_round",  DEFAULT_ROUND_MEAN)
 
-        # Round-specific mean (R3 harder by ~0.6 strokes vs R4)
-        # Use segment-appropriate expected score for each round slice
+        # Build per-player remaining means, accounting for individual round fractions.
+        # r_offset 0: current round remainder (per-player fraction)
+        # r_offset 1: first full remaining round
+        # r_offset 2+: further full rounds
         remaining_means = np.zeros(n_players)
-        rounds_accounted = 0.0
         for r_offset in range(5):
-            if rounds_accounted >= rounds_left:
-                break
             abs_round = current_round + r_offset
             if abs_round > 4:
                 break
             rp = ROUND_PARAMS.get(abs_round, {"mean": DEFAULT_ROUND_MEAN, "std": DEFAULT_ROUND_STD})
-            round_fraction = min(1.0, rounds_left - rounds_accounted)
+            round_mean_shift = rp["mean"] - DEFAULT_ROUND_MEAN
             if r_offset == 0:
-                round_fraction = current_round_remaining
+                frac = player_round_remaining        # (n_players,) — per-player
                 exp_this_segment = exp_current_rest
             elif r_offset == 1:
+                # Only applies if full_rounds_remaining >= 1
+                if full_rounds_remaining < 1:
+                    break
+                frac = np.ones(n_players)
                 exp_this_segment = exp_next_round
             else:
+                if full_rounds_remaining < r_offset:
+                    break
+                frac = np.ones(n_players)
                 exp_this_segment = exp_later_round
-            # Adjust player mean by round-specific mean shift
-            round_mean_shift = rp["mean"] - DEFAULT_ROUND_MEAN
-            remaining_means += exp_this_segment * round_fraction + round_mean_shift * round_fraction
-            rounds_accounted += round_fraction
+            remaining_means += exp_this_segment * frac + round_mean_shift * frac
 
         # Field-wide shock (same for all players — weather, pins)
-        field_std = DEFAULT_ROUND_STD * np.sqrt(FIELD_CORR * rounds_left)
+        field_std = DEFAULT_ROUND_STD * np.sqrt(FIELD_CORR * max(rounds_left, 0.1))
         field_shocks = rng.normal(0, field_std, n_sims)  # (n_sims,)
 
-        # Individual variance (independent across players)
-        indiv_std = DEFAULT_ROUND_STD * np.sqrt((1 - FIELD_CORR) * rounds_left)
+        # Individual variance scales with per-player rounds remaining
+        indiv_std = (
+            DEFAULT_ROUND_STD * np.sqrt(np.maximum((1.0 - FIELD_CORR) * player_rounds_left, 0.01))
+        )  # (n_players,)
         # (n_sims, n_players) — player-adjusted std
         individual_scores = rng.normal(
             remaining_means,                    # (n_players,) broadcast
@@ -414,8 +434,9 @@ def simulate_remaining_rounds(
         for i in range(n):
             mask = (winners == i)
             if mask.sum() >= 20:
+                pr_left = float(player_rounds_left[i]) if player_rounds_left[i] > 0 else 1.0
                 win_scenarios_avg[i] = float(
-                    remaining_scores[mask, i].mean() / rounds_left
+                    remaining_scores[mask, i].mean() / pr_left
                 )
 
     result = players[["player_name", "current_score"]].copy()
