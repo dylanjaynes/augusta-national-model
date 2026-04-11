@@ -261,9 +261,21 @@ if live_df is not None:
     rows = display.head(top_n).copy()
 
     tbl = pd.DataFrame()
-    tbl["Player"]  = rows["player_name"].values
-    tbl["Score"]   = rows["current_score_to_par"].apply(score_str).values \
-                     if "current_score_to_par" in rows.columns else "—"
+    tbl["Player"]    = rows["player_name"].values
+    tbl["Score"]     = rows["current_score_to_par"].apply(score_str).values \
+                       if "current_score_to_par" in rows.columns else "—"
+    # MC projected finish (what the model expects them to shoot total)
+    if "mc_projected_total" in rows.columns:
+        tbl["Proj Total"] = rows["mc_projected_total"].apply(
+            lambda x: f"{int(x):+d}" if pd.notna(x) else "—"
+        ).values
+    # Expected score per remaining round from player-specific distribution
+    if "expected_score_per_round" in rows.columns:
+        tbl["Exp/Rd"]  = rows["expected_score_per_round"].apply(
+            lambda x: f"{x:+.2f}" if pd.notna(x) else "—"
+        ).values
+    tbl["MC Win%"] = rows["mc_win_prob"].apply(pct_str).values \
+                     if "mc_win_prob" in rows.columns else "—"
     tbl["M Win%"]  = rows["blended_win_prob"].apply(pct_str).values
     tbl["M Odds"]  = rows["model_american_win"].apply(format_american).values \
                      if "model_american_win" in rows.columns else "—"

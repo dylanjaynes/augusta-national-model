@@ -580,6 +580,15 @@ def main():
             year=args.year,
         )
 
+        # Merge live SG columns back (lost during snapshot feature building)
+        sg_cols = ["player_name", "sg_ott", "sg_app", "sg_arg", "sg_putt",
+                   "sg_t2g", "sg_total"]
+        if all(c in live_scores.columns for c in ["sg_app", "sg_total"]):
+            results = results.merge(
+                live_scores[[c for c in sg_cols if c in live_scores.columns]],
+                on="player_name", how="left",
+            )
+
         # Merge DG in-play predictions for richer output
         if not dg_inplay.empty:
             results = results.merge(
@@ -615,12 +624,12 @@ def main():
             )
 
             # Merge MC probabilities back onto results
-            results = results.merge(
-                mc_results[["player_name", "mc_win_prob", "mc_top5_prob",
-                             "mc_top10_prob", "mc_projected_total", "strokes_back"]],
-                on="player_name",
-                how="left",
-            )
+            mc_merge_cols = ["player_name", "mc_win_prob", "mc_top5_prob",
+                             "mc_top10_prob", "mc_projected_total", "strokes_back"]
+            for c in ["expected_score_per_round", "inweek_mean"]:
+                if c in mc_results.columns:
+                    mc_merge_cols.append(c)
+            results = results.merge(mc_results[mc_merge_cols], on="player_name", how="left")
 
             # MC is now our primary win signal; pre-tournament XGBoost adds Augusta
             # skill insight especially early in the tournament.
