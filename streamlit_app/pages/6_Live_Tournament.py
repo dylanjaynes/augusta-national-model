@@ -260,6 +260,21 @@ if live_df is not None:
 
     rows = display.head(top_n).copy()
 
+    # ── Compute rounds remaining (for Need/Rd) ───────────────────────────────
+    if "holes_completed" in rows.columns:
+        avg_holes = rows["holes_completed"].mean()
+        rounds_remaining = max(0.25, 4.0 - avg_holes / 18.0)
+    else:
+        rounds_remaining = 2.0  # fallback: assume mid-tournament
+
+    # Leader's projected final total (lowest mc_projected_total wins)
+    if "mc_projected_total" in rows.columns and rows["mc_projected_total"].notna().any():
+        leader_proj_total = rows["mc_projected_total"].min()
+    elif "current_score_to_par" in rows.columns:
+        leader_proj_total = rows["current_score_to_par"].min()
+    else:
+        leader_proj_total = None
+
     tbl = pd.DataFrame()
     tbl["Player"]    = rows["player_name"].values
     tbl["Score"]     = rows["current_score_to_par"].apply(score_str).values \
@@ -269,10 +284,16 @@ if live_df is not None:
         tbl["Proj Total"] = rows["mc_projected_total"].apply(
             lambda x: f"{int(x):+d}" if pd.notna(x) else "—"
         ).values
-    # Expected score per remaining round from player-specific distribution
+    # Projected scoring rate per remaining round (player skill + form)
     if "expected_score_per_round" in rows.columns:
-        tbl["Exp/Rd"]  = rows["expected_score_per_round"].apply(
+        tbl["Proj/Rd"] = rows["expected_score_per_round"].apply(
             lambda x: f"{x:+.2f}" if pd.notna(x) else "—"
+        ).values
+    # What the player needs to average per remaining round to win
+    if leader_proj_total is not None and "current_score_to_par" in rows.columns and rounds_remaining > 0:
+        need_vals = (leader_proj_total - 1 - rows["current_score_to_par"]) / rounds_remaining
+        tbl["Need/Rd"] = need_vals.apply(
+            lambda x: f"{x:+.1f}" if pd.notna(x) else "—"
         ).values
     tbl["MC Win%"] = rows["mc_win_prob"].apply(pct_str).values \
                      if "mc_win_prob" in rows.columns else "—"
@@ -290,7 +311,12 @@ if live_df is not None:
                      ).values if "live_edge_vs_book" in rows.columns else "—"
 
     st.subheader(f"Live Leaderboard — Top {min(top_n, len(tbl))} Players")
-    st.caption("Sorted by Model Win% (descending). Bk Odds = best of DK/FD/BetMGM. DG T10% = DataGolf live model. Edge = M Win% minus Book implied win%.")
+    st.caption(
+        "Sorted by Model Win% (descending). "
+        "**Proj/Rd** = player's projected scoring rate per remaining round (skill + form). "
+        "**Need/Rd** = strokes-per-round needed to beat the leader's projected finish. "
+        "Bk Odds = best of DK/FD/BetMGM. DG T10% = DataGolf live model. Edge = M Win% minus Book implied win%."
+    )
     st.dataframe(tbl, use_container_width=True, hide_index=True)
 
     # ── Movers section ──────────────────────────────────────────────────────
