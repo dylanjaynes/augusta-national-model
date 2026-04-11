@@ -301,6 +301,17 @@ with st.sidebar:
     top_n = st.slider("Players to show", 5, 88, 30)
 
     st.divider()
+    st.markdown("**💰 Kelly Bet Sizing**")
+    bankroll = st.number_input(
+        "Bankroll ($)", min_value=10, max_value=100_000, value=200, step=10,
+        help="Total bankroll for Kelly sizing calculations"
+    )
+    kelly_frac = st.slider(
+        "Kelly fraction", min_value=0.10, max_value=1.0, value=0.25, step=0.05,
+        help="Fraction of full Kelly to bet. 0.25 = quarter Kelly (standard for variance management)."
+    )
+
+    st.divider()
     with st.expander("Run Inference"):
         if st.button("🔄 Run Demo Inference"):
             with st.spinner("Running live inference..."):
@@ -357,67 +368,110 @@ elif pre_df is not None:
 
 # ── Main Table ────────────────────────────────────────────────────────────────
 
-# Helper: build a tidy display DataFrame from the full field
-def _make_display_df(df: pd.DataFrame) -> pd.DataFrame:
+def _kelly_bet(our_prob: float, book_implied_prob: float,
+               bankroll: float, kelly_frac: float) -> float | None:
+    """
+    Fractional Kelly bet size in dollars.
+
+    kelly_fraction = (our_prob * book_decimal - 1) / (book_decimal - 1)
+    Returns None when no edge (kelly_fraction ≤ 0) or inputs invalid.
+    """
+    try:
+        if book_implied_prob <= 0 or our_prob <= 0 or our_prob >= 1:
+            return None
+        book_decimal = 1.0 / book_implied_prob
+        k = (our_prob * book_decimal - 1.0) / (book_decimal - 1.0)
+        if k <= 0:
+            return None
+        return round(bankroll * k * kelly_frac, 2)
+    except Exception:
+        return None
+
+
+def _make_display_df(df: pd.DataFrame, bankroll: float = 200.0,
+                     kelly_frac: float = 0.25) -> pd.DataFrame:
     """
     Build the canonical display frame. All pct columns are floats × 100.
 
     Probability source priority:
       Win%  → mc_win_prob  (remaining-rounds Monte Carlo, 20k sims)
-              fallback: blended_win_prob (XGBoost+position blend)
+              fallback: blended_win_prob
       T10%  → mc_top10_prob
               fallback: blended_top10_prob
 
-    Edge columns:
-      Win Edge  = Our Win%  - book_implied_win      (sportsbook-based)
-      T10 Edge  = Our T10%  - dg_top10_prob         (DG model as book proxy)
+    Columns produced (in order):
+      Player | R1 | Our Win% | Our Win Odds | Book Win% | Book Win Odds |
+      Win Edge | Win Kelly | Our T10% | Our T10 Odds | Book T10% | Book T10 Odds |
+      T10 Edge | T10 Kelly
     """
     d = df.copy()
 
-    # Pick the best available win/t10 probability columns
+    # Pick the best available probability columns
     has_mc_win = "mc_win_prob" in d.columns and d["mc_win_prob"].notna().any()
     has_mc_t10 = "mc_top10_prob" in d.columns and d["mc_top10_prob"].notna().any()
-
-    win_col = "mc_win_prob"  if has_mc_win else "blended_win_prob"
+    win_col = "mc_win_prob"   if has_mc_win else "blended_win_prob"
     t10_col = "mc_top10_prob" if has_mc_t10 else "blended_top10_prob"
 
     d = d.sort_values(win_col, ascending=False).reset_index(drop=True)
 
+    # Raw probability series
+    our_win  = d[win_col].fillna(0)
+    book_win = d["book_implied_win"].fillna(0)  if "book_implied_win" in d.columns  else pd.Series(0.0, index=d.index)
+    our_t10  = d[t10_col].fillna(0)            if t10_col in d.columns               else pd.Series(0.0, index=d.index)
+    book_t10 = d["dg_top10_prob"].fillna(0)    if "dg_top10_prob" in d.columns       else pd.Series(0.0, index=d.index)
+
     out = pd.DataFrame()
-    out["Player"]    = d["player_name"]
-    out["R1"]        = d["current_score_to_par"].apply(score_str) \
-                       if "current_score_to_par" in d.columns else "—"
-    out["Our Win%"]  = (d[win_col] * 100).round(1)
-    # Compute Our Odds directly from MC win probability (not stale blended american)
-    out["Our Odds"]  = d[win_col].apply(prob_to_american)
-    out["Book Odds"] = d["book_american_win"].apply(format_american) \
-                       if "book_american_win" in d.columns else "—"
-    # Win Edge: our MC win prob minus sportsbook implied win prob
-    if "book_implied_win" in d.columns:
-        out["Win Edge"] = ((d[win_col] - d["book_implied_win"].fillna(0)) * 100).round(1)
-    else:
-        out["Win Edge"] = np.nan
-    out["Our T10%"]  = (d[t10_col] * 100).round(1) if t10_col in d.columns else np.nan
-    # Book T10%: DataGolf live model is the best available proxy
-    if "dg_top10_prob" in d.columns:
-        out["Book T10%"] = (d["dg_top10_prob"] * 100).round(1)
-        out["T10 Edge"]  = ((d[t10_col] - d["dg_top10_prob"].fillna(0)) * 100).round(1) \
-                           if t10_col in d.columns else np.nan
-    else:
-        out["Book T10%"] = np.nan
-        out["T10 Edge"]  = np.nan
+    out["Player"]        = d["player_name"]
+    out["R1"]            = d["current_score_to_par"].apply(score_str) \
+                           if "current_score_to_par" in d.columns else "—"
+
+    # ── Win columns ───────────────────────────────────────────────────────────
+    out["Our Win%"]      = (our_win  * 100).round(1)
+    out["Our Win Odds"]  = our_win.apply(prob_to_american)
+    out["Book Win%"]     = (book_win * 100).round(1)
+    out["Book Win Odds"] = d["book_american_win"].apply(format_american) \
+                           if "book_american_win" in d.columns else book_win.apply(prob_to_american)
+    out["Win Edge"]      = ((our_win - book_win) * 100).round(1)
+    out["Win Kelly"]     = [
+        _kelly_bet(float(ow), float(bw), bankroll, kelly_frac)
+        for ow, bw in zip(our_win, book_win)
+    ]
+
+    # ── T10 columns ───────────────────────────────────────────────────────────
+    out["Our T10%"]      = (our_t10  * 100).round(1)
+    out["Our T10 Odds"]  = our_t10.apply(prob_to_american)
+    out["Book T10%"]     = (book_t10 * 100).round(1)
+    out["Book T10 Odds"] = book_t10.apply(prob_to_american)
+    out["T10 Edge"]      = ((our_t10 - book_t10) * 100).round(1)
+    out["T10 Kelly"]     = [
+        _kelly_bet(float(ot), float(bt), bankroll, kelly_frac)
+        for ot, bt in zip(our_t10, book_t10)
+    ]
+
     return out
 
 
-_PCT_CFG_WIN  = {"format": "%.1f%%"}
-_EDGE_CFG_WIN = {"format": "%+.1f%%"}
-_LEADERBOARD_CFG = {
-    "Our Win%":  st.column_config.NumberColumn("Our Win%",  format="%.1f%%"),
-    "Our T10%":  st.column_config.NumberColumn("Our T10%",  format="%.1f%%"),
-    "Book T10%": st.column_config.NumberColumn("Book T10%", format="%.1f%%"),
-    "Win Edge":  st.column_config.NumberColumn("Win Edge",  format="%+.1f%%"),
-    "T10 Edge":  st.column_config.NumberColumn("T10 Edge",  format="%+.1f%%"),
-}
+def _leaderboard_cfg(bankroll: float, kelly_frac: float) -> dict:
+    """Column config for the full leaderboard table."""
+    pct  = "%.1f%%"
+    epct = "%+.1f%%"
+    dollar = f"$%.2f"
+    return {
+        "Our Win%":      st.column_config.NumberColumn("Our Win%",      format=pct),
+        "Book Win%":     st.column_config.NumberColumn("Book Win%",      format=pct),
+        "Win Edge":      st.column_config.NumberColumn("Win Edge",       format=epct),
+        "Win Kelly":     st.column_config.NumberColumn(
+            f"Win Kelly ({kelly_frac:.0%}×)", format=dollar,
+            help=f"{kelly_frac:.0%} Kelly on {bankroll:.0f}$ bankroll"
+        ),
+        "Our T10%":      st.column_config.NumberColumn("Our T10%",      format=pct),
+        "Book T10%":     st.column_config.NumberColumn("Book T10%",      format=pct),
+        "T10 Edge":      st.column_config.NumberColumn("T10 Edge",       format=epct),
+        "T10 Kelly":     st.column_config.NumberColumn(
+            f"T10 Kelly ({kelly_frac:.0%}×)", format=dollar,
+            help=f"{kelly_frac:.0%} Kelly on {bankroll:.0f}$ bankroll"
+        ),
+    }
 
 
 if live_df is not None:
@@ -425,9 +479,10 @@ if live_df is not None:
     if "holes_completed" in display_raw.columns and min_holes > 0:
         display_raw = display_raw[display_raw["holes_completed"] >= min_holes]
 
-    full = _make_display_df(display_raw)
+    full = _make_display_df(display_raw, bankroll=bankroll, kelly_frac=kelly_frac)
+    lb_cfg = _leaderboard_cfg(bankroll, kelly_frac)
 
-    # ── Value Bets: Outright ──────────────────────────────────────────────────
+    # ── Value Bets ────────────────────────────────────────────────────────────
     WIN_EDGE_THRESH = 1.0   # %
     T10_EDGE_THRESH = 3.0   # %
 
@@ -447,22 +502,32 @@ if live_df is not None:
             if outright_bets.empty:
                 st.info("No outright edges above threshold.")
             else:
-                ob = outright_bets[["Player", "R1", "Our Odds", "Book Odds", "Win Edge"]].copy()
+                ob = outright_bets[["Player", "R1", "Our Win Odds", "Book Win Odds",
+                                    "Win Edge", "Win Kelly"]].copy()
                 st.dataframe(ob, use_container_width=True, hide_index=True,
-                             column_config={"Win Edge": st.column_config.NumberColumn("Win Edge", format="%+.1f%%")})
-                st.caption(f"Win Edge = Our Win% minus Book implied win%. Book = best of DK/FD/BetMGM.")
+                             column_config={
+                                 "Win Edge":  st.column_config.NumberColumn("Win Edge",  format="%+.1f%%"),
+                                 "Win Kelly": st.column_config.NumberColumn(
+                                     f"Bet ({kelly_frac:.0%}×)", format="$%.2f",
+                                     help="Fractional Kelly bet size"),
+                             })
+                st.caption("Win Edge = Our Win% minus Book implied win% (DK/FD/BetMGM best odds).")
 
         with vb2:
             st.markdown(f"**Top 10 — T10 Edge > +{T10_EDGE_THRESH:.0f}%**")
             if t10_bets.empty:
                 st.info("No T10 edges above threshold.")
             else:
-                tb = t10_bets[["Player", "R1", "Our T10%", "Book T10%", "T10 Edge"]].copy()
+                tb = t10_bets[["Player", "R1", "Our T10%", "Our T10 Odds", "Book T10%",
+                               "T10 Edge", "T10 Kelly"]].copy()
                 st.dataframe(tb, use_container_width=True, hide_index=True,
                              column_config={
                                  "Our T10%":  st.column_config.NumberColumn("Our T10%",  format="%.1f%%"),
                                  "Book T10%": st.column_config.NumberColumn("Book T10%", format="%.1f%%"),
                                  "T10 Edge":  st.column_config.NumberColumn("T10 Edge",  format="%+.1f%%"),
+                                 "T10 Kelly": st.column_config.NumberColumn(
+                                     f"Bet ({kelly_frac:.0%}×)", format="$%.2f",
+                                     help="Fractional Kelly bet size"),
                              })
                 st.caption("T10 Edge = Our T10% minus DataGolf live model T10% (best available book proxy).")
 
@@ -471,16 +536,15 @@ if live_df is not None:
     # ── Full Leaderboard ──────────────────────────────────────────────────────
     rows = full.head(top_n)
     st.subheader(f"📋 Full Leaderboard — Top {min(top_n, len(rows))} Players")
-    _win_src = "MC 20k-sim win prob" if ("mc_win_prob" in display_raw.columns and display_raw["mc_win_prob"].notna().any()) else "XGBoost blend"
+    _win_src = "MC 20k-sim" if ("mc_win_prob" in display_raw.columns and display_raw["mc_win_prob"].notna().any()) else "XGBoost blend"
     st.caption(
-        f"Sorted by Our Win% (descending) — source: **{_win_src}**. "
-        "**Our Odds** = Our Win% as American odds. **Book Odds** = best of DK/FD/BetMGM. "
-        "**Win Edge** = Our Win% minus Book implied win%. "
-        "**Book T10%** = DataGolf live model (best available T10 proxy). "
-        "**T10 Edge** = Our T10% minus Book T10%."
+        f"Sorted by Our Win% — source: **{_win_src}**. "
+        "**Win Kelly / T10 Kelly** = fractional Kelly bet at your bankroll. "
+        "**Book Win%/Odds** = best of DK/FD/BetMGM. "
+        "**Book T10%** = DataGolf live model (best T10 proxy). "
+        "Only positive Kelly bets shown (blank = no edge)."
     )
-    st.dataframe(rows, use_container_width=True, hide_index=True,
-                 column_config=_LEADERBOARD_CFG)
+    st.dataframe(rows, use_container_width=True, hide_index=True, column_config=lb_cfg)
 
     # ── Scenario Analysis (unchanged) ────────────────────────────────────────
     display = display_raw.copy()
