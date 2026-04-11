@@ -109,6 +109,19 @@ CHART_CONFIG = {"displayModeBar": False}
 CHAMPION_SG = [0.946, 1.446, 1.269, 0.316]   # avg Masters winner profile (n=5)
 TOP10_SG    = [0.525, 0.842, 0.650, 0.565]   # avg top-10 finisher profile (all SG years)
 
+# Per-hole avg score-to-par for winners and top-10 finishers (2015-2025, all rounds)
+# Computed from masters_hole_by_hole.parquet
+CHAMPION_HOLE_AVG = {
+    1: 0.045, 2: -0.500, 3: -0.386, 4: 0.136, 5: 0.114, 6: -0.136,
+    7: -0.114, 8: -0.568, 9: -0.295, 10: 0.023, 11: 0.045, 12: -0.159,
+    13: -0.591, 14: -0.205, 15: -0.523, 16: -0.091, 17: 0.023, 18: 0.087,
+}
+TOP10_HOLE_AVG = {
+    1: 0.085, 2: -0.550, 3: -0.135, 4: 0.147, 5: 0.143, 6: -0.014,
+    7: 0.028, 8: -0.486, 9: -0.103, 10: 0.036, 11: 0.153, 12: 0.020,
+    13: -0.542, 14: -0.054, 15: -0.442, 16: -0.125, 17: 0.058, 18: 0.094,
+}
+
 
 # ── Data Loaders ──────────────────────────────────────────────────────────────
 
@@ -364,21 +377,6 @@ fig_mc = go.Figure(go.Bar(
     hovertemplate="%{x}: %{y:.1f}%<extra></extra>",
 ))
 
-# Win marker (gold vertical line at x=0 "Win" bucket)
-fig_mc.add_vline(
-    x=0,
-    line_color="#FFD700", line_width=2, line_dash="solid",
-    annotation_text="Win", annotation_position="top",
-    annotation_font_size=11, annotation_font_color="#b8860b",
-)
-# Top 10 cutoff marker (green line between T10 and T20 buckets, index 2→3)
-fig_mc.add_vline(
-    x=2.5,
-    line_color="#2e7d32", line_width=2, line_dash="dot",
-    annotation_text="Top 10 cutoff", annotation_position="top right",
-    annotation_font_size=11, annotation_font_color="#2e7d32",
-)
-
 fig_mc.update_layout(
     template="plotly_white",
     height=280,
@@ -454,25 +452,26 @@ if hbh is not None and len(player_hist) > 0:
 
     fig_holes.add_hline(y=0, line_color="#666", line_width=1.5)
 
-    # Reference lines: champion pace (~-20 over 72 holes = -0.278/hole)
-    # and top-10 pace (~-11 over 72 holes = -0.153/hole), computed from historical data
-    CHAMP_PACE = -0.278   # avg Masters champion scoring per hole vs par
-    TOP10_PACE = -0.153   # avg top-10 finisher scoring per hole vs par
+    # Per-hole reference lines for top-10 finishers and champions
+    champ_y = [CHAMPION_HOLE_AVG.get(int(h), 0) for h in hole_chart["hole_number"]]
+    top10_y  = [TOP10_HOLE_AVG.get(int(h), 0)   for h in hole_chart["hole_number"]]
 
-    fig_holes.add_hline(
-        y=CHAMP_PACE,
-        line_color="#f9a825", line_width=1.5, line_dash="dash",
-        annotation_text="Champion pace",
-        annotation_position="top right",
-        annotation_font_size=10, annotation_font_color="#b8860b",
-    )
-    fig_holes.add_hline(
-        y=TOP10_PACE,
-        line_color="#2e7d32", line_width=1.5, line_dash="dot",
-        annotation_text="Top-10 pace",
-        annotation_position="bottom right",
-        annotation_font_size=10, annotation_font_color="#2e7d32",
-    )
+    fig_holes.add_trace(go.Scatter(
+        x=x_holes, y=top10_y,
+        mode="lines+markers",
+        name="Avg Top 10",
+        line=dict(color="#2e7d32", width=1.5, dash="dot"),
+        marker=dict(size=5),
+        hovertemplate="Hole %{x} Top-10 avg: %{y:+.2f}<extra></extra>",
+    ))
+    fig_holes.add_trace(go.Scatter(
+        x=x_holes, y=champ_y,
+        mode="lines+markers",
+        name="Avg Champion",
+        line=dict(color="#f9a825", width=2, dash="dash"),
+        marker=dict(size=5),
+        hovertemplate="Hole %{x} Champion avg: %{y:+.2f}<extra></extra>",
+    ))
 
     # Amen Corner annotation
     amen_x = ["11", "12", "13"]
@@ -488,7 +487,7 @@ if hbh is not None and len(player_hist) > 0:
 
     fig_holes.update_layout(
         template="plotly_white",
-        height=250,
+        height=290,
         margin=dict(l=20, r=20, t=40, b=20),
         xaxis=dict(
             title=None,
@@ -502,7 +501,8 @@ if hbh is not None and len(player_hist) > 0:
             tickfont=dict(size=13),
             zeroline=False,
         ),
-        showlegend=False,
+        showlegend=True,
+        legend=dict(orientation="h", yanchor="bottom", y=-0.18, xanchor="center", x=0.5, font=dict(size=11)),
         plot_bgcolor="white",
         paper_bgcolor="white",
     )
@@ -573,7 +573,13 @@ else:
 
     primary_sg = player_sg_week if player_sg_week is not None else player_sg_season
     all_vals = list(primary_sg) + CHAMPION_SG + TOP10_SG
-    r_max = max(max(abs(v) for v in all_vals), 0.5) * 1.4
+    if player_sg_season is not None:
+        all_vals += list(player_sg_season)
+    raw_max = max(all_vals)
+    raw_min = min(all_vals)
+    # Round up/down to nearest 0.5
+    r_max = (int(raw_max / 0.5) + 1) * 0.5
+    r_min = (int(raw_min / 0.5) - 1) * 0.5
 
     fig_radar = go.Figure()
 
@@ -631,12 +637,12 @@ else:
         polar=dict(
             radialaxis=dict(
                 visible=True,
-                range=[-r_max, r_max],
-                tickvals=[-1.0, -0.5, 0, 0.5, 1.0, 1.5, 2.0],
+                range=[r_min, r_max],
                 tickformat="+.1f",
                 tickfont=dict(size=10),
                 gridcolor="rgba(0,0,0,0.12)",
                 linecolor="rgba(0,0,0,0.15)",
+                dtick=0.5,
             ),
             angularaxis=dict(
                 tickfont=dict(size=14),
