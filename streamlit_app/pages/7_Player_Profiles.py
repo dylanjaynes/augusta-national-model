@@ -1,12 +1,5 @@
 """
-Player Profiles page — Augusta National Model
-
-Deep dive on a player's tournament performance:
-- Current form vs historical Masters record
-- Monte Carlo outcome histogram
-- Hole-by-hole performance chart
-- Strengths & weaknesses summary
-- SG breakdown radar chart
+Player Profiles page — Augusta National Model (mobile-first redesign)
 """
 
 import sys
@@ -25,9 +18,88 @@ st.set_page_config(
     page_icon="🏌️",
 )
 
+# ── Minimal CSS for clean card styling ────────────────────────────────────────
+st.markdown("""
+<style>
+.player-card {
+    background: #f8f9fa;
+    border-radius: 12px;
+    padding: 20px 24px;
+    margin-bottom: 20px;
+}
+.big-score {
+    font-size: 3rem;
+    font-weight: 700;
+    line-height: 1.1;
+    color: #1a1a1a;
+}
+.big-pos {
+    font-size: 2.2rem;
+    font-weight: 600;
+    color: #444;
+}
+.stat-label {
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: #888;
+    margin-bottom: 2px;
+}
+.badge {
+    display: inline-block;
+    background: #e8f4fd;
+    color: #1565c0;
+    border-radius: 20px;
+    padding: 4px 14px;
+    font-size: 0.9rem;
+    font-weight: 600;
+    margin-right: 8px;
+}
+.context-line {
+    color: #666;
+    font-size: 0.9rem;
+    margin-top: 10px;
+}
+.section-header {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: #333;
+    margin: 24px 0 10px 0;
+    padding-bottom: 6px;
+    border-bottom: 2px solid #e0e0e0;
+}
+.callout-text {
+    background: #f8f9fa;
+    border-left: 3px solid #4caf50;
+    padding: 8px 14px;
+    border-radius: 0 6px 6px 0;
+    font-size: 0.9rem;
+    margin-bottom: 8px;
+}
+.callout-text-bad {
+    background: #fff5f5;
+    border-left: 3px solid #ef5350;
+    padding: 8px 14px;
+    border-radius: 0 6px 6px 0;
+    font-size: 0.9rem;
+    margin-bottom: 8px;
+}
+.sg-summary {
+    background: #f8f9fa;
+    border-radius: 8px;
+    padding: 10px 16px;
+    font-size: 0.9rem;
+    color: #444;
+    margin-top: 8px;
+}
+</style>
+""", unsafe_allow_html=True)
+
 ROOT = Path(__file__).parent.parent.parent
 PROCESSED = ROOT / "data" / "processed"
 LIVE_DIR = ROOT / "data" / "live"
+
+CHART_CONFIG = {"displayModeBar": False}
 
 
 # ── Data Loaders ──────────────────────────────────────────────────────────────
@@ -69,6 +141,24 @@ def load_course_stats() -> pd.DataFrame | None:
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
+def safe_get(row, *cols):
+    """Return first non-null value from the given column names."""
+    for col in cols:
+        val = row.get(col, None)
+        if val is not None and not (isinstance(val, float) and np.isnan(val)):
+            return val
+    return None
+
+
+def score_fmt(v) -> str:
+    if v is None or (isinstance(v, float) and np.isnan(v)):
+        return "—"
+    v = int(round(float(v)))
+    if v == 0:
+        return "E"
+    return f"{v:+d}"
+
+
 def parse_finish_num(f) -> int | None:
     if pd.isna(f):
         return None
@@ -82,13 +172,10 @@ def parse_finish_num(f) -> int | None:
         return None
 
 
-def score_fmt(v) -> str:
-    if pd.isna(v) or v is None:
+def pct_fmt(v, decimals=1) -> str:
+    if v is None or (isinstance(v, float) and np.isnan(v)):
         return "—"
-    v = int(v)
-    if v == 0:
-        return "E"
-    return f"{v:+d}"
+    return f"{float(v) * 100:.{decimals}f}%"
 
 
 # ── Load Data ─────────────────────────────────────────────────────────────────
@@ -106,16 +193,13 @@ else:
 
 players = sorted(field_df["player_name"].dropna().tolist())
 
-# ── Page Header ───────────────────────────────────────────────────────────────
+# ── Player Selector ───────────────────────────────────────────────────────────
 
-st.title("🏌️ Player Profiles")
-st.markdown("Select a player to see their hole-by-hole history, Monte Carlo projections, and SG breakdown.")
-
+st.title("Player Profiles")
 selected_player = st.selectbox("Select a player", players, index=0)
 if not selected_player:
     st.stop()
 
-# Row lookups (pandas Series)
 player_live: pd.Series | None = None
 player_pre: pd.Series | None = None
 
@@ -124,13 +208,15 @@ if live is not None and selected_player in live["player_name"].values:
 if pretournament is not None and selected_player in pretournament["player_name"].values:
     player_pre = pretournament[pretournament["player_name"] == selected_player].iloc[0]
 
-st.markdown("---")
+form_src = player_live if player_live is not None else player_pre
 
-# ── Section 1: Current Form vs Historical ────────────────────────────────────
+# ── Historical data ───────────────────────────────────────────────────────────
 
 hbh = load_hole_by_hole()
+player_hist = pd.DataFrame()
+times_played = made_cut_count = 0
+made_cut_pct = best_finish = avg_position = None
 
-# Compute historical Masters stats for this player
 if hbh is not None:
     player_hist = hbh[hbh["player_name"] == selected_player].copy()
     if len(player_hist) > 0:
@@ -147,230 +233,154 @@ if hbh is not None:
         valid_finishes = valid_finishes[valid_finishes < 900]
         best_finish = int(valid_finishes.min()) if len(valid_finishes) > 0 else None
         avg_position = float(valid_finishes.mean()) if len(valid_finishes) > 0 else None
-    else:
-        player_hist = pd.DataFrame()
-        times_played = 0
-        made_cut_count = 0
-        made_cut_pct = 0.0
-        best_finish = None
-        avg_position = None
-else:
-    player_hist = pd.DataFrame()
-    times_played = 0
-    made_cut_count = 0
-    made_cut_pct = 0.0
-    best_finish = None
-    avg_position = None
 
-col_cur, col_hist_col = st.columns(2)
+# ── MC Probabilities ──────────────────────────────────────────────────────────
 
-with col_cur:
-    st.subheader("This Tournament")
-    if player_live is not None:
-        score_to_par = player_live.get("cumulative_score_to_par", None)
-        current_pos = player_live.get("current_pos", None)
-        thru = player_live.get("thru", None)
-        today = player_live.get("today", None)
-        current_round = player_live.get("current_round", None)
-
-        m1, m2 = st.columns(2)
-        with m1:
-            if score_to_par is not None and not pd.isna(score_to_par):
-                st.metric("Score to Par", score_fmt(score_to_par))
-            else:
-                st.metric("Score to Par", "—")
-            if current_round is not None and not pd.isna(current_round):
-                st.metric("Round", int(current_round))
-        with m2:
-            pos_str = f"T{int(current_pos)}" if current_pos is not None and str(current_pos).replace(".", "").isdigit() else (str(current_pos) if current_pos else "—")
-            st.metric("Position", pos_str)
-            if today is not None and not pd.isna(today):
-                thru_note = f"Thru {int(thru)}" if thru is not None and not pd.isna(thru) else ""
-                st.metric("Today", score_fmt(today), help=thru_note)
-    else:
-        st.info("Tournament not yet started — pre-tournament projections")
-        if player_pre is not None:
-            m1, m2 = st.columns(2)
-            win_p = player_pre.get("win_prob", None)
-            t10_p = player_pre.get("top10_prob", None)
-            t20_p = player_pre.get("top20_prob", None)
-            cut_p = player_pre.get("make_cut_prob", None)
-            with m1:
-                st.metric("Model Win %", f"{win_p:.1%}" if win_p is not None else "—")
-                st.metric("Model Top-20 %", f"{t20_p:.1%}" if t20_p is not None else "—")
-            with m2:
-                st.metric("Model Top-10 %", f"{t10_p:.1%}" if t10_p is not None else "—")
-                st.metric("Model Cut %", f"{cut_p:.1%}" if cut_p is not None else "—")
-
-with col_hist_col:
-    st.subheader("Masters History")
-    m1, m2 = st.columns(2)
-    with m1:
-        st.metric("Times Played", times_played if times_played > 0 else "—")
-        if best_finish == 1:
-            st.metric("Best Finish", "Win! 🏆")
-        elif best_finish:
-            st.metric("Best Finish", f"T{best_finish}")
-        else:
-            st.metric("Best Finish", "—")
-    with m2:
-        st.metric("Made Cut", f"{made_cut_count}/{times_played}" if times_played > 0 else "—",
-                  help=f"{made_cut_pct:.0%} cut rate" if times_played > 0 else None)
-        st.metric("Avg Position", f"#{avg_position:.0f}" if avg_position else "—")
-
-# Season Form (rolling SG from model)
-st.markdown("---")
-st.subheader("Season Form — Strokes Gained (Rolling)")
-
-form_src = player_live if player_live is not None else player_pre
-if form_src is not None:
-    sg_display = {
-        "Off-the-Tee": form_src.get("sg_ott", None),
-        "Approach": form_src.get("sg_app", None),
-        "Around Green": form_src.get("sg_arg", None),
-        "Putting": form_src.get("sg_putt", None),
-        "T2G": form_src.get("sg_t2g", None),
-        "Total": form_src.get("sg_total", None),
-    }
-    sg_cols_ui = st.columns(6)
-    for i, (label, val) in enumerate(sg_display.items()):
-        with sg_cols_ui[i]:
-            if val is not None and not pd.isna(val):
-                v = float(val)
-                delta_color = "normal" if abs(v) > 0.01 else "off"
-                st.metric(f"SG: {label}", f"{v:+.2f}")
-            else:
-                st.metric(f"SG: {label}", "—")
-
-st.markdown("---")
-
-# ── Section 2: Monte Carlo Outcome Histogram ─────────────────────────────────
-
-st.subheader("Monte Carlo Finish Distribution")
-
-# Pull MC probabilities
 if player_live is not None:
-    mc_win    = float(player_live.get("mc_win_prob", 0) or 0)
-    mc_top5   = float(player_live.get("mc_top5_prob", 0) or 0)
-    mc_top10  = float(player_live.get("mc_top10_prob", 0) or 0)
-    mc_top20  = float(player_live.get("mc_top20_prob", 0) or 0)
-    mc_cut    = float(player_live.get("dg_make_cut", player_live.get("make_cut_prob", 0.5)) or 0.5)
+    mc_win   = float(safe_get(player_live, "mc_win_prob", "dg_win_prob") or 0)
+    mc_top5  = float(safe_get(player_live, "mc_top5_prob", "dg_top5_prob") or 0)
+    mc_top10 = float(safe_get(player_live, "mc_top10_prob", "dg_top10_prob") or 0)
+    mc_top20 = float(safe_get(player_live, "mc_top20_prob", "dg_top20_prob") or 0)
+    mc_cut   = float(safe_get(player_live, "dg_make_cut", "make_cut_prob") or 0.5)
 elif player_pre is not None:
-    mc_win    = float(player_pre.get("mc_win_prob", player_pre.get("win_prob", 0)) or 0)
-    mc_top5   = float(player_pre.get("mc_top5_prob", 0) or 0)
-    mc_top10  = float(player_pre.get("mc_top10_prob", player_pre.get("top10_prob", 0)) or 0)
-    mc_top20  = float(player_pre.get("mc_top20_prob", player_pre.get("top20_prob", 0)) or 0)
-    mc_cut    = float(player_pre.get("make_cut_prob", 0.5) or 0.5)
+    mc_win   = float(safe_get(player_pre, "mc_win_prob", "win_prob") or 0)
+    mc_top5  = float(safe_get(player_pre, "mc_top5_prob") or 0)
+    mc_top10 = float(safe_get(player_pre, "mc_top10_prob", "top10_prob") or 0)
+    mc_top20 = float(safe_get(player_pre, "mc_top20_prob", "top20_prob") or 0)
+    mc_cut   = float(safe_get(player_pre, "make_cut_prob") or 0.5)
 else:
     mc_win = mc_top5 = mc_top10 = mc_top20 = mc_cut = 0.0
 
-FIELD_SIZE = max(len(field_df), 80)
-N_SIMS = 20_000
+# ── Section 1: Player Summary Card ───────────────────────────────────────────
 
-# Decompose cumulative probs into bracket probabilities
-p_win     = max(0.0, mc_win)
-p_top5    = max(0.0, mc_top5 - mc_win)
-p_top10   = max(0.0, mc_top10 - mc_top5)
-p_top20   = max(0.0, mc_top20 - mc_top10)
-p_cut     = max(0.0, mc_cut - mc_top20)
-p_mc      = max(0.0, 1.0 - mc_cut)
+# Score to par — use current_score_to_par (cumulative) not cumulative_score_to_par (pre-tourney baseline)
+score_to_par = None
+position_str = "—"
+thru_str = ""
+tournament_started = False
 
-bracket_probs = np.array([p_win, p_top5, p_top10, p_top20, p_cut, p_mc])
-total = bracket_probs.sum()
+if player_live is not None:
+    score_to_par = safe_get(player_live, "current_score_to_par", "current_score", "total")
+    current_pos = safe_get(player_live, "current_pos")
+    thru = safe_get(player_live, "thru")
+    today = safe_get(player_live, "today")
+
+    if score_to_par is not None and float(score_to_par) != 0:
+        tournament_started = True
+    elif score_to_par is None and current_pos is not None:
+        tournament_started = True
+
+    if current_pos is not None:
+        pos_s = str(current_pos)
+        if pos_s.replace(".", "").isdigit():
+            position_str = f"T{int(float(pos_s))}"
+        else:
+            position_str = pos_s
+
+    if thru is not None and not (isinstance(thru, float) and np.isnan(thru)) and int(float(thru)) > 0:
+        thru_str = f"Thru {int(float(thru))}"
+
+# Context line from historical data
+context_parts = []
+if times_played > 0:
+    context_parts.append(f"{times_played}th Masters")
+if best_finish == 1:
+    context_parts.append("Won")
+elif best_finish:
+    year_data = tourney_hist[tourney_hist["finish_num"] == best_finish]["year"].values if times_played > 0 else []
+    year_str = f" ({int(year_data[0])})" if len(year_data) else ""
+    context_parts.append(f"Best: T{best_finish}{year_str}")
+if form_src is not None:
+    sg_total = safe_get(form_src, "sg_total")
+    if sg_total is not None:
+        context_parts.append(f"SG Total: {float(sg_total):+.2f}")
+
+context_line = "  |  ".join(context_parts) if context_parts else ""
+
+# Render card
+score_color = "#1a7a45" if score_to_par is not None and float(score_to_par) < 0 else (
+    "#c62828" if score_to_par is not None and float(score_to_par) > 0 else "#1a1a1a"
+)
+score_display = score_fmt(score_to_par) if tournament_started else "—"
+
+st.markdown(f"""
+<div class="player-card">
+  <div style="font-size:1.5rem;font-weight:700;color:#1a1a1a;margin-bottom:14px">{selected_player}</div>
+  <div style="display:flex;gap:32px;align-items:flex-end;margin-bottom:14px">
+    <div>
+      <div class="stat-label">Score to Par{(" · " + thru_str) if thru_str else ""}</div>
+      <div class="big-score" style="color:{score_color}">{score_display}</div>
+    </div>
+    <div>
+      <div class="stat-label">Position</div>
+      <div class="big-pos">{position_str}</div>
+    </div>
+  </div>
+  <div style="margin-bottom:12px">
+    <span class="badge">Win {pct_fmt(mc_win)}</span>
+    <span class="badge">Top 10 {pct_fmt(mc_top10)}</span>
+    <span class="badge">Top 20 {pct_fmt(mc_top20)}</span>
+  </div>
+  {"<div class='context-line'>" + context_line + "</div>" if context_line else ""}
+</div>
+""", unsafe_allow_html=True)
+
+# ── Section 2: Monte Carlo Histogram ─────────────────────────────────────────
+
+st.markdown('<div class="section-header">Projected Finish Distribution</div>', unsafe_allow_html=True)
+
+# 6 clean buckets: Win, T5, T10, T20, 30+, MC
+p_win   = max(0.0, mc_win)
+p_t5    = max(0.0, mc_top5 - mc_win)
+p_t10   = max(0.0, mc_top10 - mc_top5)
+p_t20   = max(0.0, mc_top20 - mc_top10)
+p_30    = max(0.0, mc_cut - mc_top20)
+p_mc    = max(0.0, 1.0 - mc_cut)
+
+bucket_probs = [p_win, p_t5, p_t10, p_t20, p_30, p_mc]
+total = sum(bucket_probs)
 if total > 0:
-    bracket_probs /= total
+    bucket_probs = [p / total for p in bucket_probs]
 
-rng = np.random.default_rng(seed=42)
-bracket_counts = rng.multinomial(N_SIMS, bracket_probs)
-
-# Simulate within-bracket finish positions
-sim_positions = []
-for i, count in enumerate(bracket_counts):
-    if count == 0:
-        continue
-    if i == 0:    # Win
-        sim_positions.extend([1] * count)
-    elif i == 1:  # 2-5
-        sim_positions.extend(rng.integers(2, 6, size=count).tolist())
-    elif i == 2:  # 6-10
-        sim_positions.extend(rng.integers(6, 11, size=count).tolist())
-    elif i == 3:  # 11-20
-        sim_positions.extend(rng.integers(11, 21, size=count).tolist())
-    elif i == 4:  # 21-cut
-        sim_positions.extend(rng.integers(21, max(22, FIELD_SIZE // 2 + 1), size=count).tolist())
-    else:          # Missed cut
-        sim_positions.extend([FIELD_SIZE + 1] * count)
-
-sim_arr = np.array(sim_positions)
-
-# Histogram bins
-bin_edges  = [1, 2, 5, 10, 15, 20, 30, 50, 80]
-bin_labels = ["Win", "2–4", "5–9", "10–14", "15–19", "20–29", "30–49", "50+", "MC"]
-bin_counts = []
-for j in range(len(bin_edges) - 1):
-    lo, hi = bin_edges[j], bin_edges[j + 1]
-    bin_counts.append(int(((sim_arr >= lo) & (sim_arr < hi)).sum()))
-bin_counts.append(int((sim_arr > FIELD_SIZE).sum()))  # MC
-
-ZONE_COLORS = {
-    "Win":   "#FFD700",
-    "2–4":   "#1a7a45",
-    "5–9":   "#2ecc71",
-    "10–14": "#5dade2",
-    "15–19": "#85c1e9",
-    "20–29": "#aed6f1",
-    "30–49": "#d5dbdb",
-    "50+":   "#e59866",
-    "MC":    "#e74c3c",
-}
+bucket_labels = ["Win", "T5", "T10", "T20", "30+", "MC"]
+bucket_colors = ["#FFD700", "#2196f3", "#42a5f5", "#90caf9", "#cfd8dc", "#ef5350"]
+bar_pcts = [round(p * 100, 1) for p in bucket_probs]
 
 fig_mc = go.Figure(go.Bar(
-    x=bin_labels,
-    y=[c / N_SIMS * 100 for c in bin_counts],
-    marker_color=[ZONE_COLORS[l] for l in bin_labels],
-    text=[f"{c / N_SIMS:.1%}" for c in bin_counts],
+    x=bucket_labels,
+    y=bar_pcts,
+    marker_color=bucket_colors,
+    text=[f"{p:.0f}%" if p >= 1 else f"{p:.1f}%" for p in bar_pcts],
     textposition="outside",
-    textfont=dict(size=11),
+    textfont=dict(size=14, color="#333"),
     hovertemplate="%{x}: %{y:.1f}%<extra></extra>",
 ))
 
-# Zone annotations
-fig_mc.add_vrect(x0=-0.5, x1=0.5,  fillcolor="rgba(255,215,0,0.08)",  line_width=0, annotation_text="Win zone",  annotation_position="top left",  annotation_font_size=10)
-fig_mc.add_vrect(x0=-0.5, x1=2.5,  fillcolor="rgba(46,204,113,0.06)", line_width=0, annotation_text="Top 5",     annotation_position="top left",  annotation_font_size=10)
-fig_mc.add_vrect(x0=-0.5, x1=3.5,  fillcolor="rgba(93,173,226,0.05)", line_width=0, annotation_text="Top 10",    annotation_position="top left",  annotation_font_size=10)
-
 fig_mc.update_layout(
-    title=dict(text=f"{selected_player} — Simulated Finish Distribution ({N_SIMS:,} sims)", font=dict(size=15)),
-    xaxis_title="Finish Position",
-    yaxis=dict(title="Probability (%)", ticksuffix="%"),
-    height=420,
-    plot_bgcolor="rgba(0,0,0,0)",
-    paper_bgcolor="rgba(0,0,0,0)",
-    font=dict(color="white"),
+    template="plotly_white",
+    height=280,
+    margin=dict(l=20, r=20, t=40, b=20),
+    xaxis=dict(tickfont=dict(size=15), title=None),
+    yaxis=dict(
+        ticksuffix="%",
+        tickfont=dict(size=13),
+        title=None,
+        range=[0, max(bar_pcts) * 1.25],
+    ),
     showlegend=False,
-    margin=dict(t=60, b=40),
+    plot_bgcolor="white",
+    paper_bgcolor="white",
 )
 
-st.plotly_chart(fig_mc, use_container_width=True)
+st.plotly_chart(fig_mc, use_container_width=True, config=CHART_CONFIG)
 
-# Quick MC summary metrics
-if mc_win > 0 or mc_top10 > 0:
-    mc1, mc2, mc3, mc4 = st.columns(4)
-    mc1.metric("Win %", f"{mc_win:.1%}")
-    mc2.metric("Top-5 %", f"{mc_top5:.1%}")
-    mc3.metric("Top-10 %", f"{mc_top10:.1%}")
-    mc4.metric("Top-20 %", f"{mc_top20:.1%}")
+# ── Section 3: Hole-by-Hole ───────────────────────────────────────────────────
 
-st.markdown("---")
-
-# ── Section 3: Hole-by-Hole Performance ──────────────────────────────────────
-
-st.subheader("Hole-by-Hole Performance at Augusta")
+st.markdown('<div class="section-header">Hole-by-Hole Performance at Augusta</div>', unsafe_allow_html=True)
 
 course_stats = load_course_stats()
 
 if hbh is not None and len(player_hist) > 0:
-    # Player average score-to-par per hole
     player_hole_avg = (
         player_hist.groupby("hole_number")["score_to_par"]
         .mean()
@@ -378,258 +388,151 @@ if hbh is not None and len(player_hist) > 0:
         .rename(columns={"score_to_par": "player_avg"})
     )
 
-    # Hole info — par, name, yards from hbh data
     hole_info = (
         hbh.groupby("hole_number")
-        .agg(par=("par", "first"), hole_name=("hole_name", "first"), yards=("yards", "first"))
+        .agg(par=("par", "first"))
         .reset_index()
         .sort_values("hole_number")
     )
 
-    # Field average
-    if course_stats is not None and "avg_score_to_par" in course_stats.columns:
-        field_avg = course_stats[["hole_number", "avg_score_to_par"]].rename(
-            columns={"avg_score_to_par": "field_avg"}
-        )
-    else:
-        field_avg = (
-            hbh.groupby("hole_number")["score_to_par"]
-            .mean()
-            .reset_index()
-            .rename(columns={"score_to_par": "field_avg"})
-        )
-
     hole_chart = (
         hole_info
         .merge(player_hole_avg, on="hole_number", how="left")
-        .merge(field_avg[["hole_number", "field_avg"]], on="hole_number", how="left")
         .sort_values("hole_number")
     )
 
-    # Label each bar
-    x_labels = []
-    for _, r in hole_chart.iterrows():
-        hn = int(r["hole_number"])
-        name = r.get("hole_name", "") or ""
-        par = int(r["par"]) if not pd.isna(r.get("par", float("nan"))) else "?"
-        x_labels.append(f"#{hn}<br>Par {par}<br><i>{name}</i>")
+    # Round values to avoid floating point noise / scientific notation
+    hole_chart["player_avg"] = hole_chart["player_avg"].apply(
+        lambda v: round(float(v), 3) if not pd.isna(v) else v
+    )
 
-    # Colours: green = under par on average, red = over par
-    bar_colors = [
-        "#2ecc71" if (not pd.isna(v) and v < -0.01)
-        else "#e74c3c" if (not pd.isna(v) and v > 0.01)
-        else "#95a5a6"
-        for v in hole_chart["player_avg"]
-    ]
+    x_holes = [str(int(h)) for h in hole_chart["hole_number"]]
+    y_vals = hole_chart["player_avg"].tolist()
 
-    # Identify top 3 strengths / weaknesses
-    valid = hole_chart.dropna(subset=["player_avg"])
-    strengths_hn  = valid.nsmallest(3, "player_avg")["hole_number"].tolist()
-    weaknesses_hn = valid.nlargest(3, "player_avg")["hole_number"].tolist()
-
-    # Add border highlight for strengths/weaknesses
-    marker_line_colors = []
-    marker_line_widths = []
-    for hn in hole_chart["hole_number"]:
-        if hn in strengths_hn:
-            marker_line_colors.append("#00ff88")
-            marker_line_widths.append(3)
-        elif hn in weaknesses_hn:
-            marker_line_colors.append("#ff4444")
-            marker_line_widths.append(3)
+    bar_colors = []
+    for v in y_vals:
+        if pd.isna(v):
+            bar_colors.append("#bdbdbd")
+        elif v < -0.01:
+            bar_colors.append("#43a047")
+        elif v > 0.01:
+            bar_colors.append("#e53935")
         else:
-            marker_line_colors.append("rgba(0,0,0,0)")
-            marker_line_widths.append(0)
+            bar_colors.append("#9e9e9e")
 
     fig_holes = go.Figure()
 
     fig_holes.add_trace(go.Bar(
-        x=x_labels,
-        y=hole_chart["player_avg"],
-        name=f"{selected_player}",
-        marker=dict(
-            color=bar_colors,
-            line=dict(color=marker_line_colors, width=marker_line_widths),
-        ),
-        opacity=0.85,
-        text=[f"{v:+.2f}" if not pd.isna(v) else "" for v in hole_chart["player_avg"]],
-        textposition="outside",
-        textfont=dict(size=10),
-        hovertemplate="Hole %{x}: %{y:+.2f} avg<extra></extra>",
+        x=x_holes,
+        y=y_vals,
+        marker_color=bar_colors,
+        hovertemplate="Hole %{x}: %{y:+.2f} avg vs par<extra></extra>",
     ))
 
-    fig_holes.add_trace(go.Scatter(
-        x=x_labels,
-        y=hole_chart["field_avg"],
-        mode="lines+markers",
-        name="Field Avg",
-        line=dict(color="#f39c12", width=2, dash="dot"),
-        marker=dict(size=5),
-        hovertemplate="Field avg: %{y:+.2f}<extra></extra>",
-    ))
+    fig_holes.add_hline(y=0, line_color="#666", line_width=1.5)
 
-    # Shade Amen Corner (holes 11-13)
-    amen_indices = [i for i, r in hole_chart.reset_index(drop=True).iterrows()
-                    if int(r["hole_number"]) in (11, 12, 13)]
-    if len(amen_indices) >= 2:
-        fig_holes.add_vrect(
-            x0=amen_indices[0] - 0.5,
-            x1=amen_indices[-1] + 0.5,
-            fillcolor="rgba(255,165,0,0.10)",
-            line_width=1,
-            line_color="rgba(255,165,0,0.4)",
-            annotation_text="Amen Corner",
-            annotation_position="top right",
-            annotation_font_size=10,
-            annotation_font_color="#f39c12",
-        )
-
-    fig_holes.add_hline(y=0, line_color="rgba(200,200,200,0.5)", line_width=1)
-
-    fig_holes.update_layout(
-        title=dict(text=f"{selected_player} — Scoring Average per Hole (Masters history)", font=dict(size=15)),
-        xaxis=dict(title="Hole", tickangle=0),
-        yaxis=dict(title="Avg Score vs Par", tickformat="+.2f", zeroline=True, zerolinecolor="gray"),
-        height=480,
-        plot_bgcolor="rgba(0,0,0,0)",
-        paper_bgcolor="rgba(0,0,0,0)",
-        font=dict(color="white"),
-        legend=dict(orientation="h", yanchor="bottom", y=1.01, xanchor="right", x=1),
-        barmode="overlay",
-        margin=dict(t=60, b=20),
+    # Amen Corner annotation
+    amen_x = ["11", "12", "13"]
+    fig_holes.add_vrect(
+        x0="10.5", x1="13.5",
+        fillcolor="rgba(255,165,0,0.10)",
+        line_width=0,
+        annotation_text="Amen Corner",
+        annotation_position="top right",
+        annotation_font_size=11,
+        annotation_font_color="#f57c00",
     )
 
-    st.plotly_chart(fig_holes, use_container_width=True)
+    fig_holes.update_layout(
+        template="plotly_white",
+        height=250,
+        margin=dict(l=20, r=20, t=40, b=20),
+        xaxis=dict(
+            title=None,
+            tickvals=x_holes,
+            ticktext=x_holes,
+            tickfont=dict(size=14),
+        ),
+        yaxis=dict(
+            title=None,
+            tickformat=".1f",
+            tickfont=dict(size=13),
+            zeroline=False,
+        ),
+        showlegend=False,
+        plot_bgcolor="white",
+        paper_bgcolor="white",
+    )
 
-    # ── Section 4: Strengths & Weaknesses ────────────────────────────────────
-    st.markdown("---")
-    st.subheader("Strengths & Weaknesses")
+    st.plotly_chart(fig_holes, use_container_width=True, config=CHART_CONFIG)
 
-    col_s, col_w = st.columns(2)
-    with col_s:
-        st.markdown("**Best holes (strengths)**")
-        for hn in strengths_hn:
-            row = hole_chart[hole_chart["hole_number"] == hn]
-            if len(row) > 0:
-                r = row.iloc[0]
-                name_str = f" — {r['hole_name']}" if r.get("hole_name") else ""
-                par_str = f", Par {int(r['par'])}" if not pd.isna(r.get("par", float("nan"))) else ""
-                st.markdown(f"✅ **Hole {int(hn)}{name_str}**{par_str}: {r['player_avg']:+.2f} avg vs par")
+    # Callout text
+    valid = hole_chart.dropna(subset=["player_avg"])
+    if len(valid) > 0:
+        best3 = valid.nsmallest(3, "player_avg")
+        worst3 = valid.nlargest(3, "player_avg")
 
-    with col_w:
-        st.markdown("**Toughest holes (weaknesses)**")
-        for hn in weaknesses_hn:
-            row = hole_chart[hole_chart["hole_number"] == hn]
-            if len(row) > 0:
-                r = row.iloc[0]
-                name_str = f" — {r['hole_name']}" if r.get("hole_name") else ""
-                par_str = f", Par {int(r['par'])}" if not pd.isna(r.get("par", float("nan"))) else ""
-                st.markdown(f"⚠️ **Hole {int(hn)}{name_str}**{par_str}: {r['player_avg']:+.2f} avg vs par")
-
-    # Par type breakdown
-    if "par" in hole_chart.columns:
-        st.markdown("")
-        par_breakdown = (
-            hole_chart.dropna(subset=["player_avg", "par"])
-            .groupby("par")["player_avg"]
-            .mean()
+        best_str = ", ".join(
+            f"#{int(r['hole_number'])} ({r['player_avg']:+.2f})"
+            for _, r in best3.iterrows()
         )
-        par_items = [f"{'🟢' if avg < 0 else '🔴'} **Par {int(p)}**: {avg:+.2f} avg vs par"
-                     for p, avg in par_breakdown.items()]
-        st.markdown("  ·  ".join(par_items))
+        worst_str = ", ".join(
+            f"#{int(r['hole_number'])} ({r['player_avg']:+.2f})"
+            for _, r in worst3.iterrows()
+        )
 
-    # Amen Corner summary
-    amen_rows = hole_chart[hole_chart["hole_number"].isin([11, 12, 13])].dropna(subset=["player_avg"])
-    if len(amen_rows) > 0:
-        amen_avg = amen_rows["player_avg"].mean()
-        emoji = "🟢" if amen_avg < 0 else "🔴"
-        st.markdown(f"{emoji} **Amen Corner (11–13)**: {amen_avg:+.2f} avg vs par")
+        st.markdown(f'<div class="callout-text">Best holes: {best_str}</div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="callout-text-bad">Toughest holes: {worst_str}</div>', unsafe_allow_html=True)
+
+        # Amen Corner
+        amen = valid[valid["hole_number"].isin([11, 12, 13])]
+        if len(amen) > 0:
+            amen_avg = amen["player_avg"].mean()
+            amen_label = f"Amen Corner (11-13): {amen_avg:+.2f} avg vs par"
+            css_class = "callout-text" if amen_avg < 0 else "callout-text-bad"
+            st.markdown(f'<div class="{css_class}">{amen_label}</div>', unsafe_allow_html=True)
 
 elif hbh is not None:
-    st.info(f"No historical hole-by-hole data for **{selected_player}** at Augusta.")
+    st.info(f"No hole-by-hole history for {selected_player} at Augusta.")
 
-    # Fall back to SG-based strengths/weaknesses
-    if form_src is not None:
-        st.subheader("Strengths & Weaknesses")
-        sg_map = {
-            "Off-the-tee (driving distance/accuracy)": form_src.get("sg_ott", None),
-            "Approach play (iron accuracy)":           form_src.get("sg_app", None),
-            "Around the green (chipping/pitching)":    form_src.get("sg_arg", None),
-            "Putting":                                  form_src.get("sg_putt", None),
-        }
-        strengths_list  = [(k, float(v)) for k, v in sg_map.items() if v is not None and not pd.isna(v) and float(v) > 0.2]
-        weaknesses_list = [(k, float(v)) for k, v in sg_map.items() if v is not None and not pd.isna(v) and float(v) < -0.2]
+# ── Section 4: SG Radar ───────────────────────────────────────────────────────
 
-        col_s, col_w = st.columns(2)
-        with col_s:
-            st.markdown("**Strengths**")
-            for k, v in sorted(strengths_list, key=lambda x: -x[1]):
-                st.markdown(f"✅ {k}: {v:+.2f} SG")
-            if not strengths_list:
-                st.markdown("_No clear strengths from SG data_")
-        with col_w:
-            st.markdown("**Weaknesses**")
-            for k, v in sorted(weaknesses_list, key=lambda x: x[1]):
-                st.markdown(f"⚠️ {k}: {v:+.2f} SG")
-            if not weaknesses_list:
-                st.markdown("_No clear weaknesses from SG data_")
-else:
-    st.info("Hole-by-hole data not available.")
+st.markdown('<div class="section-header">Strokes Gained Breakdown</div>', unsafe_allow_html=True)
 
-st.markdown("---")
+sg_keys = ["sg_ott", "sg_app", "sg_arg", "sg_putt"]
+sg_labels = ["Off-the-Tee", "Approach", "Short Game", "Putting"]
 
-# ── Section 5: SG Radar Chart ─────────────────────────────────────────────────
-
-st.subheader("Strokes Gained Breakdown")
-
-sg_keys       = ["sg_ott", "sg_app", "sg_arg", "sg_putt"]
-sg_cat_labels = ["Off-the-Tee", "Approach", "Around Green", "Putting"]
-
-# Field average SG (from whichever df we have)
-field_sg_avgs = {}
+field_sg = []
 for k in sg_keys:
     if k in field_df.columns:
-        field_sg_avgs[k] = float(field_df[k].mean())
+        field_sg.append(float(field_df[k].mean()))
     else:
-        field_sg_avgs[k] = 0.0
+        field_sg.append(0.0)
 
-# Player SG values — use live (current tournament) if available
-player_sg_tournament = None
+player_sg_week = None
 player_sg_season = None
 
 if player_live is not None:
-    vals = [player_live.get(k, None) for k in sg_keys]
-    if any(v is not None and not pd.isna(v) for v in vals):
-        player_sg_tournament = [float(v) if v is not None and not pd.isna(v) else 0.0 for v in vals]
+    vals = [safe_get(player_live, k) for k in sg_keys]
+    if any(v is not None for v in vals):
+        player_sg_week = [float(v) if v is not None else 0.0 for v in vals]
 
 if player_pre is not None:
-    vals = [player_pre.get(k, None) for k in sg_keys]
-    if any(v is not None and not pd.isna(v) for v in vals):
-        player_sg_season = [float(v) if v is not None and not pd.isna(v) else 0.0 for v in vals]
+    vals = [safe_get(player_pre, k) for k in sg_keys]
+    if any(v is not None for v in vals):
+        player_sg_season = [float(v) if v is not None else 0.0 for v in vals]
 
-field_sg = [field_sg_avgs.get(k, 0.0) for k in sg_keys]
-
-# Close the radar polygon
-cats_closed  = sg_cat_labels + [sg_cat_labels[0]]
-field_closed = field_sg + [field_sg[0]]
-
-if player_sg_tournament is None and player_sg_season is None:
+if player_sg_week is None and player_sg_season is None:
     st.info("No SG data available for this player.")
 else:
+    cats_closed = sg_labels + [sg_labels[0]]
+
+    primary_sg = player_sg_week or player_sg_season
+    r_max = max(max(abs(v) for v in primary_sg), 0.5) * 1.35
+
     fig_radar = go.Figure()
 
-    # Field average baseline
-    fig_radar.add_trace(go.Scatterpolar(
-        r=field_closed,
-        theta=cats_closed,
-        fill="toself",
-        name="Field Average",
-        line=dict(color="#85c1e9", width=1.5, dash="dot"),
-        fillcolor="rgba(133,193,233,0.08)",
-        hovertemplate="%{theta}: %{r:+.2f}<extra>Field Avg</extra>",
-    ))
-
-    # Season average (pre-tournament rolling)
+    # Season avg — thin gray dashed
     if player_sg_season is not None:
         season_closed = player_sg_season + [player_sg_season[0]]
         fig_radar.add_trace(go.Scatterpolar(
@@ -637,56 +540,64 @@ else:
             theta=cats_closed,
             fill="toself",
             name="Season Avg",
-            line=dict(color="#2ecc71", width=2, dash="dash"),
-            fillcolor="rgba(46,204,113,0.12)",
+            line=dict(color="#9e9e9e", width=1.5, dash="dash"),
+            fillcolor="rgba(158,158,158,0.10)",
             hovertemplate="%{theta}: %{r:+.2f}<extra>Season</extra>",
         ))
 
-    # Current tournament SG (live)
-    if player_sg_tournament is not None:
-        tournament_closed = player_sg_tournament + [player_sg_tournament[0]]
-        label = "This Week" if player_live is not None else "Current"
+    # This Week — bold colored
+    if player_sg_week is not None:
+        week_closed = player_sg_week + [player_sg_week[0]]
         fig_radar.add_trace(go.Scatterpolar(
-            r=tournament_closed,
+            r=week_closed,
             theta=cats_closed,
             fill="toself",
-            name=label,
-            line=dict(color="#FFD700", width=2.5),
-            fillcolor="rgba(255,215,0,0.18)",
+            name="This Week",
+            line=dict(color="#1565c0", width=3),
+            fillcolor="rgba(21,101,192,0.18)",
             hovertemplate="%{theta}: %{r:+.2f}<extra>This Week</extra>",
         ))
 
-    # Determine the primary SG values to show in subtitle
-    primary = player_sg_tournament if player_sg_tournament else player_sg_season
-    best_cat  = sg_cat_labels[int(np.argmax(primary))]
-    worst_cat = sg_cat_labels[int(np.argmin(primary))]
-
-    r_max = max(max(abs(v) for v in (player_sg_tournament or [0])),
-                max(abs(v) for v in (player_sg_season or [0])),
-                0.5) * 1.3
-
     fig_radar.update_layout(
+        template="plotly_white",
         polar=dict(
             radialaxis=dict(
                 visible=True,
                 range=[-r_max, r_max],
                 tickformat="+.1f",
-                gridcolor="rgba(128,128,128,0.25)",
-                tickfont=dict(size=9),
+                tickfont=dict(size=11),
+                gridcolor="rgba(0,0,0,0.12)",
+                linecolor="rgba(0,0,0,0.15)",
             ),
-            angularaxis=dict(gridcolor="rgba(128,128,128,0.25)"),
-            bgcolor="rgba(0,0,0,0)",
+            angularaxis=dict(
+                tickfont=dict(size=14),
+                gridcolor="rgba(0,0,0,0.10)",
+                linecolor="rgba(0,0,0,0.15)",
+            ),
+            bgcolor="white",
         ),
+        height=280,
+        margin=dict(l=20, r=20, t=40, b=20),
         showlegend=True,
-        title=dict(
-            text=(f"{selected_player} — SG Breakdown<br>"
-                  f"<sub>Strength: {best_cat}  ·  Weakness: {worst_cat}</sub>"),
-            font=dict(size=14),
-        ),
-        height=480,
-        paper_bgcolor="rgba(0,0,0,0)",
-        font=dict(color="white"),
-        legend=dict(orientation="h", yanchor="bottom", y=-0.15, xanchor="center", x=0.5),
+        legend=dict(orientation="h", yanchor="bottom", y=-0.12, xanchor="center", x=0.5, font=dict(size=13)),
+        paper_bgcolor="white",
     )
 
-    st.plotly_chart(fig_radar, use_container_width=True)
+    st.plotly_chart(fig_radar, use_container_width=True, config=CHART_CONFIG)
+
+    # SG summary text
+    primary = player_sg_week if player_sg_week is not None else player_sg_season
+    best_idx = int(np.argmax(primary))
+    worst_idx = int(np.argmin(primary))
+    field_best = field_sg[best_idx]
+    field_worst = field_sg[worst_idx]
+    vs_field_best = primary[best_idx] - field_best
+    vs_field_worst = primary[worst_idx] - field_worst
+
+    st.markdown(
+        f'<div class="sg-summary">'
+        f'<strong>Strength:</strong> {sg_labels[best_idx]} ({vs_field_best:+.2f} vs field)&nbsp;&nbsp;'
+        f'<strong>Weakness:</strong> {sg_labels[worst_idx]} ({vs_field_worst:+.2f} vs field)'
+        f'</div>',
+        unsafe_allow_html=True,
+    )
