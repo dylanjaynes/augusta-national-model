@@ -89,21 +89,15 @@ rename = {
 }
 display = table[[c for c in display_cols if c in table.columns]].rename(columns=rename)
 
-for col in ["Model Win%", "Book Win%", "Model T10%", "Book T10%"]:
+for col in ["Model Win%", "Book Win%", "Model T10%", "Book T10%", "Model T20%"]:
     if col in display.columns:
-        display[col] = display[col].apply(lambda v: f"{float(v):.1%}" if pd.notna(v) else "—")
-if "Model T20%" in display.columns:
-    display["Model T20%"] = display["Model T20%"].apply(
-        lambda v: f"{float(v):.1%}" if pd.notna(v) else "—")
-for col in ["Win Edge", "T10 Edge"]:
-    if col in display.columns:
-        display[col] = display[col].apply(
-            lambda v: f"{float(v):+.2f}x" if pd.notna(v) else "—")
+        display[col] = display[col].apply(lambda v: round(float(v) * 100, 1) if pd.notna(v) else None)
+# Keep edge cols as raw floats (Kelly multipliers, e.g. 0.5 = 50% edge over market)
 
 
 def style_edge(val):
     try:
-        v = float(str(val).replace("x", "").replace("+", ""))
+        v = float(val)
         if v > 0.5:
             return "background-color: #1a472a; color: #7dcea0; font-weight: bold"
         elif v > 0:
@@ -112,13 +106,18 @@ def style_edge(val):
             return "background-color: #641e16; color: #f1948a; font-weight: bold"
         else:
             return "background-color: #7b241c; color: #f5cba7"
-    except (ValueError, TypeError):
+    except (TypeError, ValueError):
         return ""
 
 
 edge_cols = [c for c in ["Win Edge", "T10 Edge"] if c in display.columns]
 styled = display.style.map(style_edge, subset=edge_cols)
-st.dataframe(styled, width="stretch", height=600, hide_index=True)
+_best_bets_cfg = {c: st.column_config.NumberColumn(c, format="%.1f%%")
+                  for c in ["Model Win%", "Book Win%", "Model T10%", "Book T10%", "Model T20%"]
+                  if c in display.columns}
+for ec in edge_cols:
+    _best_bets_cfg[ec] = st.column_config.NumberColumn(ec, format="%+.2fx")
+st.dataframe(styled, width="stretch", height=600, hide_index=True, column_config=_best_bets_cfg)
 
 if len(table) == 0:
     st.info(f"No players with Win Edge ≥ {min_edge:.1f}. Lower the threshold.")

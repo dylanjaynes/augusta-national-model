@@ -82,12 +82,10 @@ if "augusta_scoring_trajectory" in top10.columns:
     col_names.append("Trajectory")
 top10.columns = col_names
 
-top10["Win %"] = top10["Win %"].map("{:.1%}".format)
-top10["Top-10 %"] = top10["Top-10 %"].map("{:.1%}".format)
-top10["Top-20 %"] = top10["Top-20 %"].map("{:.1%}".format)
-if "Cut %" in top10.columns:
-    top10["Cut %"] = top10["Cut %"].map("{:.1%}".format)
-if "Trajectory" in top10.columns:
-    top10["Trajectory"] = top10["Trajectory"].map("{:+.2f}".format)
+for col in ["Win %", "Top-10 %", "Top-20 %", "Cut %"]:
+    if col in top10.columns:
+        top10[col] = top10[col] * 100
 top10.index = range(1, len(top10) + 1)
-st.dataframe(top10, width="stretch")
+_pct_cols = {c: st.column_config.NumberColumn(c, format="%.1f%%")
+             for c in ["Win %", "Top-10 %", "Top-20 %", "Cut %"] if c in top10.columns}
+st.dataframe(top10, width="stretch", column_config=_pct_cols)

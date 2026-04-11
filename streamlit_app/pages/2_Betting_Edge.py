@@ -55,31 +55,30 @@ def show_tab(df, model_col, mkt_col, edge_col, threshold_pct, label):
     df2 = df2.dropna(subset=["Market %"])
 
     positive = df2[df2["Edge %"].fillna(0) > threshold_pct / 100].sort_values(
-        "Edge %", ascending=False)
-    for col in ["Model %", "Market %"]:
+        "Edge %", ascending=False).copy()
+    for col in ["Model %", "Market %", "Edge %"]:
         if col in positive.columns:
-            positive = positive.copy()
-            positive[col] = positive[col].map("{:.1%}".format)
-    if "Edge %" in positive.columns:
-        positive = positive.copy()
-        positive["Edge %"] = positive["Edge %"].map("{:+.0%}".format)
+            positive[col] = positive[col] * 100
 
+    _edge_cfg = {
+        "Model %":  st.column_config.NumberColumn("Model %",  format="%.1f%%"),
+        "Market %": st.column_config.NumberColumn("Market %", format="%.1f%%"),
+        "Edge %":   st.column_config.NumberColumn("Edge %",   format="%+.0f%%"),
+    }
     if len(positive):
-        st.dataframe(positive, width="stretch", height=500, hide_index=True)
+        st.dataframe(positive, width="stretch", height=500, hide_index=True,
+                     column_config=_edge_cfg)
         st.caption(f"{len(positive)} plays above {threshold_pct}% edge")
     else:
         st.info(f"No plays above {threshold_pct}% edge")
 
-    fades = df2[df2["Edge %"].fillna(0) < -0.30].sort_values("Edge %").head(10)
+    fades = df2[df2["Edge %"].fillna(0) < -0.30].sort_values("Edge %").head(10).copy()
     if len(fades):
         st.markdown("#### Fades (model below market)")
-        fades = fades.copy()
-        for col in ["Model %", "Market %"]:
+        for col in ["Model %", "Market %", "Edge %"]:
             if col in fades.columns:
-                fades[col] = fades[col].map("{:.1%}".format)
-        if "Edge %" in fades.columns:
-            fades["Edge %"] = fades["Edge %"].map("{:+.0%}".format)
-        st.dataframe(fades, width="stretch", hide_index=True)
+                fades[col] = fades[col] * 100
+        st.dataframe(fades, width="stretch", hide_index=True, column_config=_edge_cfg)
 
     st.markdown("---")
     st.caption("For research and entertainment only. Not financial advice.")

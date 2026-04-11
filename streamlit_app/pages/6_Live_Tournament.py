@@ -182,6 +182,20 @@ def pct_str(v, decimals=1) -> str:
     return f"{v:.{decimals}%}"
 
 
+def pct_num(v):
+    """Return v * 100 as float for NumberColumn display (NaN → None)."""
+    if v is None or (isinstance(v, float) and np.isnan(v)):
+        return None
+    try:
+        return round(float(v) * 100, 1)
+    except (TypeError, ValueError):
+        return None
+
+
+_PCT_CFG  = {"format": "%.1f%%"}
+_EDGE_CFG = {"format": "%+.1f%%"}
+
+
 def format_american(v) -> str:
     """Format raw American odds integer/float (e.g. 280.0 → '+280', -110.0 → '-110')."""
     if pd.isna(v):
@@ -396,22 +410,27 @@ if live_df is not None:
             return f"{int(p25):+d} / {int(p75):+d}"
         tbl["Range (25/75)"] = rows.apply(_range_str, axis=1).values
 
-    tbl["MC Win%"] = rows["mc_win_prob"].apply(pct_str).values \
-                     if "mc_win_prob" in rows.columns else "—"
-    tbl["MC T10%"] = rows["mc_top10_prob"].apply(pct_str).values \
-                     if "mc_top10_prob" in rows.columns else "—"
-    tbl["M Win%"]  = rows["blended_win_prob"].apply(pct_str).values
+    tbl["MC Win%"] = rows["mc_win_prob"].apply(pct_num).values \
+                     if "mc_win_prob" in rows.columns else None
+    tbl["MC T10%"] = rows["mc_top10_prob"].apply(pct_num).values \
+                     if "mc_top10_prob" in rows.columns else None
+    tbl["M Win%"]  = rows["blended_win_prob"].apply(pct_num).values
     tbl["M Odds"]  = rows["model_american_win"].apply(format_american).values \
                      if "model_american_win" in rows.columns else "—"
     tbl["Bk Odds"] = rows["book_american_win"].apply(format_american).values \
                      if "book_american_win" in rows.columns else "—"
-    tbl["M T10%"]  = rows["blended_top10_prob"].apply(pct_str).values \
-                     if "blended_top10_prob" in rows.columns else "—"
-    tbl["DG T10%"] = rows["dg_top10_prob"].apply(pct_str).values \
-                     if "dg_top10_prob" in rows.columns else "—"
-    tbl["Edge"]    = rows["live_edge_vs_book"].apply(
-                         lambda x: f"{x:+.1%}" if pd.notna(x) else "—"
-                     ).values if "live_edge_vs_book" in rows.columns else "—"
+    tbl["M T10%"]  = rows["blended_top10_prob"].apply(pct_num).values \
+                     if "blended_top10_prob" in rows.columns else None
+    tbl["DG T10%"] = rows["dg_top10_prob"].apply(pct_num).values \
+                     if "dg_top10_prob" in rows.columns else None
+    tbl["Edge"]    = rows["live_edge_vs_book"].apply(pct_num).values \
+                     if "live_edge_vs_book" in rows.columns else None
+
+    tbl_col_cfg = {c: st.column_config.NumberColumn(c, **_PCT_CFG)
+                   for c in ["MC Win%", "MC T10%", "M Win%", "M T10%", "DG T10%"]
+                   if c in tbl.columns}
+    if "Edge" in tbl.columns:
+        tbl_col_cfg["Edge"] = st.column_config.NumberColumn("Edge", **_EDGE_CFG)
 
     st.subheader(f"Live Leaderboard — Top {min(top_n, len(tbl))} Players")
     st.caption(
@@ -422,7 +441,7 @@ if live_df is not None:
         "**MC Win%** / **MC T10%** = Monte Carlo win / top-10 probability (position-aware, 20k sims). "
         "Bk Odds = best of DK/FD/BetMGM. Edge = M Win% minus Book implied win%."
     )
-    st.dataframe(tbl, use_container_width=True, hide_index=True)
+    st.dataframe(tbl, use_container_width=True, hide_index=True, column_config=tbl_col_cfg)
 
     # ── Scenario Analysis (narrative, intuitive) ─────────────────────────────
     has_mc = "mc_win_prob" in rows.columns and rows["mc_win_prob"].notna().any()
@@ -609,9 +628,10 @@ if live_df is not None:
                 st.markdown("**Today's leaderboard**")
                 today_tbl = sc_sorted.head(6)[["player_name","current_score_to_par","mc_win_prob"]].copy()
                 today_tbl["Score"] = today_tbl["current_score_to_par"].apply(score_str)
-                today_tbl["Win%"]  = today_tbl["mc_win_prob"].apply(pct_str)
+                today_tbl["Win%"]  = today_tbl["mc_win_prob"].apply(pct_num)
                 st.dataframe(today_tbl[["player_name","Score","Win%"]].rename(
-                    columns={"player_name":"Player"}), use_container_width=True, hide_index=True)
+                    columns={"player_name":"Player"}), use_container_width=True, hide_index=True,
+                    column_config={"Win%": st.column_config.NumberColumn("Win%", **_PCT_CFG)})
         else:
             st.info("Historical data not available for comparison.")
 
@@ -632,13 +652,14 @@ if live_df is not None:
                 else ["player_name", "live_rank", "rank_change", "blended_top10_prob"]
             ].copy()
             gainers["Move"] = gainers["rank_change"].apply(movement_arrow)
-            gainers["T10%"] = gainers["blended_top10_prob"].apply(pct_str)
+            gainers["T10%"] = gainers["blended_top10_prob"].apply(pct_num)
             if "current_score_to_par" in gainers.columns:
                 gainers["Score"] = gainers["current_score_to_par"].apply(score_str)
             st.dataframe(
                 gainers[["player_name", "live_rank", "Move", "T10%"] +
                         (["Score"] if "Score" in gainers.columns else [])].rename(columns={"player_name": "Player", "live_rank": "Rank"}),
-                use_container_width=True, hide_index=True
+                use_container_width=True, hide_index=True,
+                column_config={"T10%": st.column_config.NumberColumn("T10%", **_PCT_CFG)},
             )
 
         with mc2:
@@ -649,21 +670,22 @@ if live_df is not None:
                 else ["player_name", "live_rank", "rank_change", "blended_top10_prob"]
             ].copy()
             losers["Move"] = losers["rank_change"].apply(movement_arrow)
-            losers["T10%"] = losers["blended_top10_prob"].apply(pct_str)
+            losers["T10%"] = losers["blended_top10_prob"].apply(pct_num)
             if "current_score_to_par" in losers.columns:
                 losers["Score"] = losers["current_score_to_par"].apply(score_str)
             st.dataframe(
                 losers[["player_name", "live_rank", "Move", "T10%"] +
                        (["Score"] if "Score" in losers.columns else [])].rename(columns={"player_name": "Player", "live_rank": "Rank"}),
-                use_container_width=True, hide_index=True
+                use_container_width=True, hide_index=True,
+                column_config={"T10%": st.column_config.NumberColumn("T10%", **_PCT_CFG)},
             )
 
 elif pre_df is not None:
     # Show pre-tournament table as fallback
     st.subheader("Pre-Tournament Predictions (No Live Data)")
     disp = pre_df.sort_values("win_prob", ascending=False).head(top_n).copy()
-    disp["Win%"] = disp["win_prob"].apply(pct_str)
-    disp["T10%"] = disp["top10_prob"].apply(pct_str) if "top10_prob" in disp.columns else "—"
+    disp["Win%"] = disp["win_prob"].apply(pct_num)
+    disp["T10%"] = disp["top10_prob"].apply(pct_num) if "top10_prob" in disp.columns else None
     disp["Rank"] = range(1, len(disp) + 1)
     cols = ["Rank", "player_name", "dg_rank", "Win%", "T10%"]
     cols = [c for c in cols if c in disp.columns]
@@ -671,6 +693,10 @@ elif pre_df is not None:
         disp[cols].rename(columns={"player_name": "Player", "dg_rank": "World Rank"}),
         use_container_width=True,
         hide_index=True,
+        column_config={
+            "Win%": st.column_config.NumberColumn("Win%", **_PCT_CFG),
+            "T10%": st.column_config.NumberColumn("T10%", **_PCT_CFG),
+        },
     )
 else:
     st.error("No data available. Run `python3 run_production.py` first.")

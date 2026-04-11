@@ -137,9 +137,9 @@ for tab, (label, model_col, mkt_col, edge_col) in zip(tabs, MARKETS):
             rows.append({
                 "#":           i + 1,
                 "Player":      name,
-                "My Odds":     fmt_pct(model_p),
+                "My Odds":     round(float(model_p) * 100, 1) if pd.notna(model_p) else None,
                 "My (Amer)":   prob_to_american(model_p),
-                "Book Odds":   fmt_pct(mkt_p),
+                "Book Odds":   round(float(mkt_p) * 100, 1) if pd.notna(mkt_p) else None,
                 "Book (Amer)": prob_to_american(mkt_p),
                 "EV":          fmt_ev(ev),
                 "_ev_raw":     float(ev) if pd.notna(ev) else 0.0,
@@ -175,7 +175,11 @@ for tab, (label, model_col, mkt_col, edge_col) in zip(tabs, MARKETS):
             width="stretch",
             height=900,
             hide_index=True,
-            column_config={"_ev_raw": None},   # hide raw numeric col
+            column_config={
+                "_ev_raw":    None,
+                "My Odds":    st.column_config.NumberColumn("My Odds",   format="%.1f%%"),
+                "Book Odds":  st.column_config.NumberColumn("Book Odds", format="%.1f%%"),
+            },
         )
         st.caption(f"**{n_pos}** positive EV plays · **{n_neg}** fades · threshold ±0.05")
 
