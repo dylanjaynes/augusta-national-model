@@ -364,6 +364,21 @@ fig_mc = go.Figure(go.Bar(
     hovertemplate="%{x}: %{y:.1f}%<extra></extra>",
 ))
 
+# Win marker (gold vertical line at x=0 "Win" bucket)
+fig_mc.add_vline(
+    x=0,
+    line_color="#FFD700", line_width=2, line_dash="solid",
+    annotation_text="Win", annotation_position="top",
+    annotation_font_size=11, annotation_font_color="#b8860b",
+)
+# Top 10 cutoff marker (green line between T10 and T20 buckets, index 2→3)
+fig_mc.add_vline(
+    x=2.5,
+    line_color="#2e7d32", line_width=2, line_dash="dot",
+    annotation_text="Top 10 cutoff", annotation_position="top right",
+    annotation_font_size=11, annotation_font_color="#2e7d32",
+)
+
 fig_mc.update_layout(
     template="plotly_white",
     height=280,
@@ -373,7 +388,7 @@ fig_mc.update_layout(
         ticksuffix="%",
         tickfont=dict(size=13),
         title=None,
-        range=[0, max(bar_pcts) * 1.25],
+        range=[0, max(bar_pcts) * 1.30],
     ),
     showlegend=False,
     plot_bgcolor="white",
@@ -439,6 +454,26 @@ if hbh is not None and len(player_hist) > 0:
 
     fig_holes.add_hline(y=0, line_color="#666", line_width=1.5)
 
+    # Reference lines: champion pace (~-20 over 72 holes = -0.278/hole)
+    # and top-10 pace (~-11 over 72 holes = -0.153/hole), computed from historical data
+    CHAMP_PACE = -0.278   # avg Masters champion scoring per hole vs par
+    TOP10_PACE = -0.153   # avg top-10 finisher scoring per hole vs par
+
+    fig_holes.add_hline(
+        y=CHAMP_PACE,
+        line_color="#f9a825", line_width=1.5, line_dash="dash",
+        annotation_text="Champion pace",
+        annotation_position="top right",
+        annotation_font_size=10, annotation_font_color="#b8860b",
+    )
+    fig_holes.add_hline(
+        y=TOP10_PACE,
+        line_color="#2e7d32", line_width=1.5, line_dash="dot",
+        annotation_text="Top-10 pace",
+        annotation_position="bottom right",
+        annotation_font_size=10, annotation_font_color="#2e7d32",
+    )
+
     # Amen Corner annotation
     amen_x = ["11", "12", "13"]
     fig_holes.add_vrect(
@@ -503,33 +538,20 @@ if hbh is not None and len(player_hist) > 0:
 elif hbh is not None:
     st.info(f"No hole-by-hole history for {selected_player} at Augusta.")
 
-# ── Section 4: SG Radar (percentile scale) ───────────────────────────────────
+# ── Section 4: SG Radar (raw SG with zone shading) ───────────────────────────
 
 st.markdown('<div class="section-header">Strokes Gained Breakdown</div>', unsafe_allow_html=True)
 
 sg_keys = ["sg_ott", "sg_app", "sg_arg", "sg_putt"]
 sg_labels = ["Off-the-Tee", "Approach", "Short Game", "Putting"]
 
-# Build field distribution arrays for percentile computation
-field_sg_arrays = {}
+# Field average SG for vs-field delta in summary text
+field_sg_avg = []
 for k in sg_keys:
     if k in field_df.columns:
-        field_sg_arrays[k] = field_df[k].dropna().values
+        field_sg_avg.append(float(field_df[k].mean()))
     else:
-        field_sg_arrays[k] = np.array([0.0])
-
-
-def to_pctile(raw_val: float, field_arr: np.ndarray) -> float:
-    """Return 0-100 percentile of raw_val within field_arr (higher = better)."""
-    return float(np.mean(field_arr <= raw_val) * 100)
-
-
-def pctile_label(p: float) -> str:
-    """Ordinal suffix: 98 → '98th'."""
-    p = int(round(p))
-    suffix = {1: "st", 2: "nd", 3: "rd"}.get(p % 10 if p % 100 not in (11, 12, 13) else 0, "th")
-    return f"{p}{suffix}"
-
+        field_sg_avg.append(0.0)
 
 player_sg_week = None
 player_sg_season = None
@@ -549,62 +571,51 @@ if player_sg_week is None and player_sg_season is None:
 else:
     cats_closed = sg_labels + [sg_labels[0]]
 
-    # Convert every SG profile to field percentiles
-    def sg_to_pctiles(sg_vals):
-        return [to_pctile(v, field_sg_arrays[k]) for v, k in zip(sg_vals, sg_keys)]
-
-    champ_pctiles  = sg_to_pctiles(CHAMPION_SG)
-    top10_pctiles  = sg_to_pctiles(TOP10_SG)
-
-    primary_sg_raw = player_sg_week if player_sg_week is not None else player_sg_season
-    primary_pctiles = sg_to_pctiles(primary_sg_raw)
-
-    season_pctiles = sg_to_pctiles(player_sg_season) if player_sg_season is not None else None
-    week_pctiles   = sg_to_pctiles(player_sg_week)   if player_sg_week   is not None else None
+    primary_sg = player_sg_week if player_sg_week is not None else player_sg_season
+    all_vals = list(primary_sg) + CHAMPION_SG + TOP10_SG
+    r_max = max(max(abs(v) for v in all_vals), 0.5) * 1.4
 
     fig_radar = go.Figure()
 
-    # Avg Top-10 — green dotted
-    top10_closed = top10_pctiles + [top10_pctiles[0]]
+    # Top-10 zone — light green filled band (outer edge = Avg Top 10, filled to origin)
+    top10_closed = TOP10_SG + [TOP10_SG[0]]
     fig_radar.add_trace(go.Scatterpolar(
         r=top10_closed,
         theta=cats_closed,
-        fill="none",
+        fill="toself",
         name="Avg Top 10",
         line=dict(color="#2e7d32", width=1.5, dash="dot"),
-        customdata=TOP10_SG + [TOP10_SG[0]],
-        hovertemplate="%{theta}: %{r:.0f}th pctl (SG: %{customdata:+.2f})<extra>Avg Top 10</extra>",
+        fillcolor="rgba(46,125,50,0.10)",
+        hovertemplate="%{theta}: %{r:+.2f}<extra>Avg Top 10</extra>",
     ))
 
-    # Avg Champion — gold dashed
-    champ_closed = champ_pctiles + [champ_pctiles[0]]
+    # Champion zone — light gold filled band (outer edge = Avg Champion, filled to origin)
+    champ_closed = CHAMPION_SG + [CHAMPION_SG[0]]
     fig_radar.add_trace(go.Scatterpolar(
         r=champ_closed,
         theta=cats_closed,
-        fill="none",
+        fill="toself",
         name="Avg Champion",
         line=dict(color="#f9a825", width=2, dash="dash"),
-        customdata=CHAMPION_SG + [CHAMPION_SG[0]],
-        hovertemplate="%{theta}: %{r:.0f}th pctl (SG: %{customdata:+.2f})<extra>Avg Champion</extra>",
+        fillcolor="rgba(249,168,37,0.10)",
+        hovertemplate="%{theta}: %{r:+.2f}<extra>Avg Champion</extra>",
     ))
 
-    # Season avg — thin gray dashed
-    if season_pctiles is not None:
-        season_closed = season_pctiles + [season_pctiles[0]]
+    # Season avg — thin gray dashed, no fill
+    if player_sg_season is not None:
+        season_closed = player_sg_season + [player_sg_season[0]]
         fig_radar.add_trace(go.Scatterpolar(
             r=season_closed,
             theta=cats_closed,
-            fill="toself",
+            fill="none",
             name="Season Avg",
             line=dict(color="#9e9e9e", width=1.5, dash="dash"),
-            fillcolor="rgba(158,158,158,0.08)",
-            customdata=player_sg_season + [player_sg_season[0]],
-            hovertemplate="%{theta}: %{r:.0f}th pctl (SG: %{customdata:+.2f})<extra>Season</extra>",
+            hovertemplate="%{theta}: %{r:+.2f}<extra>Season</extra>",
         ))
 
-    # This Week — bold blue (primary)
-    if week_pctiles is not None:
-        week_closed = week_pctiles + [week_pctiles[0]]
+    # This Week — bold blue on top
+    if player_sg_week is not None:
+        week_closed = player_sg_week + [player_sg_week[0]]
         fig_radar.add_trace(go.Scatterpolar(
             r=week_closed,
             theta=cats_closed,
@@ -612,8 +623,7 @@ else:
             name="This Week",
             line=dict(color="#1565c0", width=3),
             fillcolor="rgba(21,101,192,0.18)",
-            customdata=player_sg_week + [player_sg_week[0]],
-            hovertemplate="%{theta}: %{r:.0f}th pctl (SG: %{customdata:+.2f})<extra>This Week</extra>",
+            hovertemplate="%{theta}: %{r:+.2f}<extra>This Week</extra>",
         ))
 
     fig_radar.update_layout(
@@ -621,10 +631,10 @@ else:
         polar=dict(
             radialaxis=dict(
                 visible=True,
-                range=[0, 100],
-                tickvals=[0, 25, 50, 75, 100],
-                ticktext=["0", "25", "50", "75", "100"],
-                tickfont=dict(size=11),
+                range=[-r_max, r_max],
+                tickvals=[-1.0, -0.5, 0, 0.5, 1.0, 1.5, 2.0],
+                tickformat="+.1f",
+                tickfont=dict(size=10),
                 gridcolor="rgba(0,0,0,0.12)",
                 linecolor="rgba(0,0,0,0.15)",
             ),
@@ -644,15 +654,16 @@ else:
 
     st.plotly_chart(fig_radar, use_container_width=True, config=CHART_CONFIG)
 
-    # Strength/weakness summary using percentiles
-    best_idx  = int(np.argmax(primary_pctiles))
-    worst_idx = int(np.argmin(primary_pctiles))
+    # Strength/weakness using raw SG vs field avg
+    best_idx  = int(np.argmax(primary_sg))
+    worst_idx = int(np.argmin(primary_sg))
+    vs_best  = primary_sg[best_idx]  - field_sg_avg[best_idx]
+    vs_worst = primary_sg[worst_idx] - field_sg_avg[worst_idx]
 
     st.markdown(
         f'<div class="sg-summary">'
-        f'<strong>Strength:</strong> {sg_labels[best_idx]} ({pctile_label(primary_pctiles[best_idx])} percentile)'
-        f'&nbsp;&nbsp;'
-        f'<strong>Weakness:</strong> {sg_labels[worst_idx]} ({pctile_label(primary_pctiles[worst_idx])} percentile)'
+        f'<strong>Strength:</strong> {sg_labels[best_idx]} ({vs_best:+.2f} vs field)&nbsp;&nbsp;'
+        f'<strong>Weakness:</strong> {sg_labels[worst_idx]} ({vs_worst:+.2f} vs field)'
         f'</div>',
         unsafe_allow_html=True,
     )
