@@ -207,7 +207,7 @@ table = pd.DataFrame({
     "Player": display["player_name"],
     "Pos": display["position"],
     "Current": display["current_score"].apply(fmt_score),
-    "Proj Total": display["projected_total"].apply(fmt_score),
+    "Projected Final": display["projected_total"].apply(fmt_score),
     "Exp Finish": display["expected_finish"].apply(fmt_finish),
     "Best": display["best_case_finish"].apply(fmt_finish),
     "Worst": display["worst_case_finish"].apply(fmt_finish),
