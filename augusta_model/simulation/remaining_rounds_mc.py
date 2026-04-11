@@ -97,6 +97,13 @@ def _pretournament_expected_score(player_name: str, pre_df: pd.DataFrame) -> flo
     """
     Pre-tournament expected score per round at Augusta from season-long SG.
     Uses Augusta course-fit weights on rolling SG features.
+
+    Fallback priority:
+      1. Rolling SG features (sg_ott_8w etc.) — best, Augusta-weighted
+      2. DG world rank (dg_rank) — reliable objective skill measure
+         Formula: DEFAULT_ROUND_MEAN - 2.5 / sqrt(dg_rank)
+         rank 1 → -2.0/round (elite), rank 25 → 0.0, rank 100 → +0.25
+      3. model_score finish percentile — last resort, may be stale
     """
     row = pre_df[pre_df["player_name"] == player_name]
     if row.empty:
@@ -104,12 +111,11 @@ def _pretournament_expected_score(player_name: str, pre_df: pd.DataFrame) -> flo
 
     row = row.iloc[0]
 
-    # Try SG rolling features if available
+    # Priority 1: Rolling SG features (season form, best proxy for skill)
     sg_cols_8w = ["sg_ott_8w", "sg_app_8w", "sg_arg_8w", "sg_putt_8w"]
     sg_cols_3w = ["sg_ott_3w", "sg_app_3w", "sg_arg_3w", "sg_putt_3w"]
     sg_keys    = ["sg_ott",    "sg_app",    "sg_arg",    "sg_putt"]
 
-    # Pick best available SG source
     sg_vals = {}
     for key, c8, c3 in zip(sg_keys, sg_cols_8w, sg_cols_3w):
         if c8 in row.index and pd.notna(row[c8]):
@@ -118,14 +124,23 @@ def _pretournament_expected_score(player_name: str, pre_df: pd.DataFrame) -> flo
             sg_vals[key] = float(row[c3])
 
     if sg_vals:
-        # Apply Augusta weights and SG-to-strokes conversion
         adj = sum(
             AUGUSTA_WEIGHTS.get(k, 0.25) * SG_TO_STROKES.get(k, -0.5) * v
             for k, v in sg_vals.items()
         )
         return DEFAULT_ROUND_MEAN + adj * 4  # scale: Augusta weights sum to ~1, multiply back
 
-    # Fall back to model_score (0=best, 1=worst)
+    # Priority 2: DG world rank — power-law mapping to expected score/round.
+    # model_score (finish percentile) is unreliable when rolling SG features are absent
+    # because the XGBoost was trained on those features and produces arbitrary outputs
+    # for players entered without them. DG rank is always correct.
+    if "dg_rank" in row.index and pd.notna(row["dg_rank"]):
+        dg_rank = max(1.0, float(row["dg_rank"]))
+        # 1/sqrt(rank) decay: rank 1 → -2.0, rank 25 → ~0.0, rank 100 → +0.25
+        pre_mean = DEFAULT_ROUND_MEAN - 2.5 / (dg_rank ** 0.5)
+        return float(pre_mean)
+
+    # Priority 3: model_score finish percentile (last resort)
     if "model_score" in row.index and pd.notna(row["model_score"]):
         deviation = (float(row["model_score"]) - 0.5) * 5
         return DEFAULT_ROUND_MEAN + deviation
