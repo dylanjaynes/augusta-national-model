@@ -398,6 +398,8 @@ if live_df is not None:
 
     tbl["MC Win%"] = rows["mc_win_prob"].apply(pct_str).values \
                      if "mc_win_prob" in rows.columns else "—"
+    tbl["MC T10%"] = rows["mc_top10_prob"].apply(pct_str).values \
+                     if "mc_top10_prob" in rows.columns else "—"
     tbl["M Win%"]  = rows["blended_win_prob"].apply(pct_str).values
     tbl["M Odds"]  = rows["model_american_win"].apply(format_american).values \
                      if "model_american_win" in rows.columns else "—"
@@ -417,6 +419,7 @@ if live_df is not None:
         "**Proj/Rd** = projected scoring rate per remaining round. "
         "**Need/Rd** = pace needed to beat the leader's projected finish. "
         "**Range (25/75)** = optimistic / pessimistic projected total. "
+        "**MC Win%** / **MC T10%** = Monte Carlo win / top-10 probability (position-aware, 20k sims). "
         "Bk Odds = best of DK/FD/BetMGM. Edge = M Win% minus Book implied win%."
     )
     st.dataframe(tbl, use_container_width=True, hide_index=True)
