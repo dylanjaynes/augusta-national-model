@@ -148,6 +148,93 @@ def _normalize_name(name: str) -> str:
     return name
 
 
+_DG_SKIP_KEYS = {"dg_id", "player_name", "datagolf"}
+_PREFERRED_BOOKS = {"draftkings", "fanduel", "betmgm", "bet365", "caesars",
+                    "bovada", "betonline", "pointsbet"}
+
+
+def fetch_dg_placement_odds(market: str) -> pd.DataFrame:
+    """
+    Fetch real sportsbook T5 / T10 / T20 odds from DataGolf betting-tools outrights.
+
+    market: 'top_5' | 'top_10' | 'top_20'
+
+    Returns DataFrame: player_name, book_{market}_american (int), book_{market}_implied (float),
+    best_book_{market} (str with book name).
+
+    Best odds = highest American value (least negative for favourites, most positive for dogs).
+    Preferred books (DK/FD/MGM/365/Caesars/Bovada/Betonline/PointsBet) are tried first;
+    falls back to any book if preferred books have no line.
+    """
+    url = "https://feeds.datagolf.com/betting-tools/outrights"
+    params = {
+        "market": market,
+        "tour": "pga",
+        "odds_format": "american",
+        "file_format": "json",
+        "key": DATAGOLF_API_KEY,
+    }
+    try:
+        resp = requests.get(url, params=params, timeout=10)
+        resp.raise_for_status()
+        data = resp.json()
+    except Exception as e:
+        print(f"  DG {market} odds error: {e}")
+        return pd.DataFrame()
+
+    players = data.get("odds", [])
+    if not players:
+        return pd.DataFrame()
+
+    def _parse_american(val) -> int | None:
+        if val is None or str(val).strip().lower() in ("n/a", "", "null"):
+            return None
+        try:
+            return int(float(str(val).strip()))
+        except (ValueError, TypeError):
+            return None
+
+    rows = []
+    for p in players:
+        name = _normalize_name(p.get("player_name", ""))
+        if not name:
+            continue
+
+        # Collect all valid (book, odds) pairs
+        book_odds: list[tuple[str, int]] = []
+        for key, val in p.items():
+            if key in _DG_SKIP_KEYS:
+                continue
+            parsed = _parse_american(val)
+            if parsed is not None:
+                book_odds.append((key, parsed))
+
+        if not book_odds:
+            continue
+
+        # Prefer regulated US books; fall back to any
+        preferred = [(b, o) for b, o in book_odds if b in _PREFERRED_BOOKS]
+        candidates = preferred if preferred else book_odds
+        best_book, best_odds = max(candidates, key=lambda x: x[1])
+
+        # Implied probability from American odds
+        if best_odds >= 0:
+            implied = 100.0 / (best_odds + 100.0)
+        else:
+            implied = (-best_odds) / (-best_odds + 100.0)
+
+        rows.append({
+            "player_name":               name,
+            f"book_{market}_american":   best_odds,
+            f"book_{market}_implied":    round(implied, 6),
+            f"best_book_{market}":       best_book,
+        })
+
+    df = pd.DataFrame(rows)
+    print(f"  DG {market} odds: {len(df)} players (books: {set(r[2] for r in [(r['player_name'], r.get(f'book_{market}_american'), r.get(f'best_book_{market}')) for _, r in df.iterrows()])})")
+    return df
+
+
 def fetch_dg_live_scores() -> pd.DataFrame:
     """
     Fetch live tournament stats from DataGolf API (live-tournament-stats endpoint).
@@ -675,8 +762,8 @@ def main():
             results = results.sort_values("blended_win_prob", ascending=False).reset_index(drop=True)
             results["live_rank"] = range(1, len(results) + 1)
 
-        # Fetch and merge live book odds
-        print("  Fetching live book odds...")
+        # Fetch and merge live book odds (win + placement markets)
+        print("  Fetching live book odds (win, top-5, top-10, top-20)...")
         book_odds = fetch_live_book_odds()
         if not book_odds.empty:
             results = results.merge(
@@ -684,6 +771,11 @@ def main():
                 on="player_name",
                 how="left",
             )
+
+        for market in ("top_5", "top_10", "top_20"):
+            placement_odds = fetch_dg_placement_odds(market)
+            if not placement_odds.empty:
+                results = results.merge(placement_odds, on="player_name", how="left")
 
         # Apply position correction AFTER all merges so scores are present
         print("  Applying leaderboard position correction...")

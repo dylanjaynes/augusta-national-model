@@ -444,7 +444,12 @@ def _make_display_df(df: pd.DataFrame, bankroll: float = 200.0,
     our_win  = d[win_col].fillna(0)
     book_win = d["book_implied_win"].fillna(0)  if "book_implied_win" in d.columns  else pd.Series(0.0, index=d.index)
     our_t10  = d[t10_col].fillna(0)            if t10_col in d.columns               else pd.Series(0.0, index=d.index)
-    book_t10 = d["dg_top10_prob"].fillna(0)    if "dg_top10_prob" in d.columns       else pd.Series(0.0, index=d.index)
+    # T10 book: prefer real sportsbook odds; fall back to DG model prob
+    has_real_t10 = "book_top_10_implied" in d.columns and d["book_top_10_implied"].notna().any()
+    book_t10 = d["book_top_10_implied"].fillna(0) if has_real_t10 else (
+        d["dg_top10_prob"].fillna(0) if "dg_top10_prob" in d.columns else pd.Series(0.0, index=d.index)
+    )
+    _t10_book_label = "Book T10%" if has_real_t10 else "DG Model T10%"
 
     out = pd.DataFrame()
     out["Player"]        = d["player_name"]
@@ -466,38 +471,43 @@ def _make_display_df(df: pd.DataFrame, bankroll: float = 200.0,
     # ── T10 columns ───────────────────────────────────────────────────────────
     out["Our T10%"]      = (our_t10  * 100).round(1)
     out["Our T10 Odds"]  = our_t10.apply(prob_to_american)
-    out["Book T10%"]     = (book_t10 * 100).round(1)
-    out["Book T10 Odds"] = book_t10.apply(prob_to_american)
+    out[_t10_book_label]  = (book_t10 * 100).round(1)
+    # For Book T10 Odds: use real sportsbook american line if available
+    if has_real_t10 and "book_top_10_american" in d.columns:
+        out["Book T10 Odds"] = d["book_top_10_american"].apply(format_american)
+    else:
+        out["Book T10 Odds"] = book_t10.apply(prob_to_american)
     out["T10 Edge"]      = ((our_t10 - book_t10) * 100).round(1)
     out["T10 Kelly"]     = [
         _kelly_bet(float(ot), float(bt), bankroll, kelly_frac)
         for ot, bt in zip(our_t10, book_t10)
     ]
 
-    return out
+    return out, _t10_book_label
 
 
-def _leaderboard_cfg(bankroll: float, kelly_frac: float) -> dict:
+def _leaderboard_cfg(bankroll: float, kelly_frac: float, t10_book_label: str = "Book T10%") -> dict:
     """Column config for the full leaderboard table."""
     pct  = "%.1f%%"
     epct = "%+.1f%%"
-    dollar = f"$%.2f"
-    return {
+    dollar = "$%.2f"
+    cfg = {
         "Our Win%":      st.column_config.NumberColumn("Our Win%",      format=pct),
         "Book Win%":     st.column_config.NumberColumn("Book Win%",      format=pct),
         "Win Edge":      st.column_config.NumberColumn("Win Edge",       format=epct),
         "Win Kelly":     st.column_config.NumberColumn(
             f"Win Kelly ({kelly_frac:.0%}×)", format=dollar,
-            help=f"{kelly_frac:.0%} Kelly on {bankroll:.0f}$ bankroll"
+            help=f"{kelly_frac:.0%} Kelly on ${bankroll:.0f} bankroll"
         ),
         "Our T10%":      st.column_config.NumberColumn("Our T10%",      format=pct),
-        "Book T10%":     st.column_config.NumberColumn("Book T10%",      format=pct),
+        t10_book_label:  st.column_config.NumberColumn(t10_book_label,   format=pct),
         "T10 Edge":      st.column_config.NumberColumn("T10 Edge",       format=epct),
         "T10 Kelly":     st.column_config.NumberColumn(
             f"T10 Kelly ({kelly_frac:.0%}×)", format=dollar,
-            help=f"{kelly_frac:.0%} Kelly on {bankroll:.0f}$ bankroll"
+            help=f"{kelly_frac:.0%} Kelly on ${bankroll:.0f} bankroll"
         ),
     }
+    return cfg
 
 
 if live_df is not None:
@@ -505,8 +515,8 @@ if live_df is not None:
     if "holes_completed" in display_raw.columns and min_holes > 0:
         display_raw = display_raw[display_raw["holes_completed"] >= min_holes]
 
-    full = _make_display_df(display_raw, bankroll=bankroll, kelly_frac=kelly_frac)
-    lb_cfg = _leaderboard_cfg(bankroll, kelly_frac)
+    full, _t10_label = _make_display_df(display_raw, bankroll=bankroll, kelly_frac=kelly_frac)
+    lb_cfg = _leaderboard_cfg(bankroll, kelly_frac, t10_book_label=_t10_label)
 
     # ── Value Bets ────────────────────────────────────────────────────────────
     WIN_EDGE_THRESH = 1.0   # %
@@ -544,18 +554,23 @@ if live_df is not None:
             if t10_bets.empty:
                 st.info("No T10 edges above threshold.")
             else:
-                tb = t10_bets[["Player", "Score", "Our T10%", "Our T10 Odds", "Book T10%",
-                               "T10 Edge", "T10 Kelly"]].copy()
+                tb = t10_bets[["Player", "Score", "Our T10%", "Our T10 Odds", _t10_label,
+                               "Book T10 Odds", "T10 Edge", "T10 Kelly"]].copy()
+                _t10_caption = (
+                    "T10 Edge = Our T10% minus real sportsbook implied probability (DK/FD/MGM/etc.)."
+                    if _t10_label == "Book T10%"
+                    else "T10 Edge = Our MC model vs DataGolf's live model (no real T10 book lines available)."
+                )
                 st.dataframe(tb, use_container_width=True, hide_index=True,
                              column_config={
-                                 "Our T10%":  st.column_config.NumberColumn("Our T10%",  format="%.1f%%"),
-                                 "Book T10%": st.column_config.NumberColumn("Book T10%", format="%.1f%%"),
-                                 "T10 Edge":  st.column_config.NumberColumn("T10 Edge",  format="%+.1f%%"),
-                                 "T10 Kelly": st.column_config.NumberColumn(
+                                 "Our T10%":   st.column_config.NumberColumn("Our T10%",    format="%.1f%%"),
+                                 _t10_label:   st.column_config.NumberColumn(_t10_label,     format="%.1f%%"),
+                                 "T10 Edge":   st.column_config.NumberColumn("T10 Edge",     format="%+.1f%%"),
+                                 "T10 Kelly":  st.column_config.NumberColumn(
                                      f"Bet ({kelly_frac:.0%}×)", format="$%.2f",
                                      help="Fractional Kelly bet size"),
                              })
-                st.caption("T10 Edge = Our T10% minus DataGolf live model T10% (best available book proxy).")
+                st.caption(_t10_caption)
 
         st.divider()
 
@@ -566,8 +581,8 @@ if live_df is not None:
     st.caption(
         f"Sorted by Our Win% — source: **{_win_src}**. "
         "**Win Kelly / T10 Kelly** = fractional Kelly bet at your bankroll. "
-        "**Book Win%/Odds** = best of DK/FD/BetMGM. "
-        "**Book T10%** = DataGolf live model (best T10 proxy). "
+        "**Book Win%/Odds** = best of DK/FD/BetMGM (real sportsbook lines). "
+        f"**{_t10_label}** = {'real sportsbook T10 implied prob (DG outrights API)' if _t10_label == 'Book T10%' else 'DataGolf live model — no real T10 lines available'}. "
         "Only positive Kelly bets shown (blank = no edge)."
     )
     st.dataframe(rows, use_container_width=True, hide_index=True, column_config=lb_cfg)
