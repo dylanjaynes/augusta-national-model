@@ -623,10 +623,12 @@ def main():
                 n_sims=20_000,
             )
 
-            # Merge MC probabilities back onto results
+            # Merge MC probabilities back onto results (including new percentile/scenario cols)
             mc_merge_cols = ["player_name", "mc_win_prob", "mc_top5_prob",
                              "mc_top10_prob", "mc_projected_total", "strokes_back"]
-            for c in ["expected_score_per_round", "inweek_mean"]:
+            for c in ["expected_score_per_round", "inweek_mean",
+                      "mc_proj_p25", "mc_proj_p75", "mc_proj_p90",
+                      "mc_collapse_prob", "mc_win_scenario_score"]:
                 if c in mc_results.columns:
                     mc_merge_cols.append(c)
             results = results.merge(mc_results[mc_merge_cols], on="player_name", how="left")
