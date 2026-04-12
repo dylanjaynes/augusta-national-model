@@ -4,6 +4,9 @@ Distribution-based probability visualizer + bird's-eye overview
 """
 from __future__ import annotations
 
+import urllib.request
+import json
+from datetime import datetime
 from pathlib import Path
 
 import numpy as np
@@ -35,6 +38,84 @@ DEFAULT_STROKES: dict[str, float] = {
     "Ben Griffin":     71.5, "Jake Knapp":     71.0,
 }
 ALL_PP_PLAYERS = list(DEFAULT_STROKES.keys())
+
+# API stat type → internal key
+STAT_MAP = {
+    "Strokes":               "strokes",
+    "Birdies Or Better":     "birdies",
+    "Pars":                  "pars",
+    "Bogeys or Worse":       "bogeys",
+    "Hole 10 thru 18 Shots": "back9",
+    "Hole 2 Shots":          "h2",
+    "Hole 8 Shots":          "h8",
+    "Hole 13 Shots":         "h13",
+    "Hole 15 Shots":         "h15",
+    "Greens In Regulation":  "gir",
+    "Fairways Hit":          "fir",
+}
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Live PrizePicks lines
+# ─────────────────────────────────────────────────────────────────────────────
+
+@st.cache_data(ttl=300)
+def fetch_pp_lines() -> tuple[dict[str, dict[str, float]], str, bool]:
+    """
+    Fetch live lines from the PrizePicks partner API.
+    Returns:
+        lines:     {player_name: {stat_key: line_score}}
+        timestamp: human-readable fetch time
+        live:      True if fetch succeeded, False if using fallback
+    """
+    url = "https://partner-api.prizepicks.com/projections?per_page=1000"
+    try:
+        req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
+        with urllib.request.urlopen(req, timeout=8) as resp:
+            data = json.loads(resp.read().decode())
+    except Exception:
+        # Fallback to hardcoded strokes lines only
+        fallback = {p: {"strokes": v} for p, v in DEFAULT_STROKES.items()}
+        return fallback, "API unavailable — using hardcoded fallback", False
+
+    included  = data.get("included", [])
+    player_map = {
+        x["id"]: (x["attributes"].get("display_name") or x["attributes"].get("name", ""))
+        for x in included if x.get("type") == "new_player"
+    }
+
+    lines: dict[str, dict[str, float]] = {}
+    for proj in data.get("data", []):
+        attrs = proj.get("attributes", {})
+        # Filter to PGA/Augusta projections with standard odds only
+        if attrs.get("odds_type") != "standard":
+            continue
+        desc    = attrs.get("description", "")
+        game_id = attrs.get("game_id", "")
+        if "Augusta" not in desc and "PGA" not in game_id:
+            continue
+        stat_type  = attrs.get("stat_type", "")
+        stat_key   = STAT_MAP.get(stat_type)
+        if stat_key is None:
+            continue
+        line_score = attrs.get("line_score")
+        if line_score is None:
+            continue
+        pid   = proj.get("relationships", {}).get("new_player", {}).get("data", {}).get("id", "")
+        pname = player_map.get(pid, "")
+        if not pname:
+            continue
+        if pname not in lines:
+            lines[pname] = {}
+        lines[pname][stat_key] = float(line_score)
+
+    ts = datetime.now().strftime("%H:%M:%S")
+    return lines, f"Lines fetched at {ts}", True
+
+
+def get_strokes_line(pp_lines: dict, player: str) -> float | None:
+    """Return the live strokes line for a player, or None if unavailable."""
+    return pp_lines.get(player, {}).get("strokes") or DEFAULT_STROKES.get(player)
+
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Data loading
@@ -633,42 +714,57 @@ rs = build_round_stats(hbh)
 live_players = live["player_name"].tolist() if live is not None else []
 all_players  = live_players + [p for p in sorted(rs["player_name"].unique()) if p not in live_players]
 
+# ── Fetch live PP lines ────────────────────────────────────────────────────────
+pp_lines, pp_ts, pp_live = fetch_pp_lines()
+
 # ── Sidebar ────────────────────────────────────────────────────────────────────
 with st.sidebar:
     st.markdown("### Detail: Select Player")
     player = st.selectbox("Player", all_players, index=0)
 
     st.markdown("---")
-    st.markdown("### PrizePicks Lines")
-    st.caption("Enter lines from the PrizePicks app.")
+    # Line status indicator
+    if pp_live:
+        st.success(f"Live lines — {pp_ts}")
+    else:
+        st.warning(pp_ts)
 
-    default_strokes = DEFAULT_STROKES.get(player, 72.0)
-    line_strokes = st.number_input("Total Strokes", value=default_strokes,
+    st.markdown("### PrizePicks Lines")
+    st.caption("Pre-filled from live API. Adjust if needed.")
+
+    player_lines = pp_lines.get(player, {})
+    default_strokes = player_lines.get("strokes") or DEFAULT_STROKES.get(player, 72.0)
+    default_birdies = player_lines.get("birdies", 3.5)
+    default_pars    = player_lines.get("pars", 10.5)
+    default_bogeys  = player_lines.get("bogeys", 3.5)
+    default_back9   = player_lines.get("back9", 36.5)
+
+    line_strokes = st.number_input("Total Strokes", value=float(default_strokes),
                                    min_value=63.0, max_value=85.0, step=0.5, format="%.1f")
-    line_birdies = st.number_input("Birdies or Better", value=3.5,
+    line_birdies = st.number_input("Birdies or Better", value=float(default_birdies),
                                    min_value=0.0, max_value=10.0, step=0.5, format="%.1f")
-    line_pars    = st.number_input("Pars", value=10.5,
+    line_pars    = st.number_input("Pars", value=float(default_pars),
                                    min_value=4.0, max_value=17.0, step=0.5, format="%.1f")
-    line_bogeys  = st.number_input("Bogeys or Worse", value=3.5,
+    line_bogeys  = st.number_input("Bogeys or Worse", value=float(default_bogeys),
                                    min_value=0.0, max_value=12.0, step=0.5, format="%.1f")
-    line_back9   = st.number_input("Back 9 Strokes", value=36.5,
+    line_back9   = st.number_input("Back 9 Strokes", value=float(default_back9),
                                    min_value=28.0, max_value=48.0, step=0.5, format="%.1f")
 
     st.markdown("---")
-    st.caption(
-        "Total Strokes lines pre-filled from PrizePicks screenshots. "
-        "Adjust other lines to match the app."
-    )
+    if st.button("Refresh Lines"):
+        st.cache_data.clear()
+        st.rerun()
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # SECTION 1 — OVERVIEW TABLE
 # ═══════════════════════════════════════════════════════════════════════════════
 
-st.subheader("R4 Score Projections — All Players")
+live_src = "🟢 Live from PrizePicks API" if pp_live else "🟡 Hardcoded fallback"
+st.subheader(f"R4 Score Projections — All Players  {live_src}")
 st.caption(
-    "Sorted by Model Avg (best projected score first). "
-    "**#1 / #2 Score** = two most likely R4 scores and their individual probabilities. "
-    "**Under%** = probability of scoring ≤ the PP line. Click any column header to re-sort."
+    f"{pp_ts} · Sorted by Model Avg. "
+    "**#1 / #2 Score** = two most likely R4 scores. "
+    "**Under%** = probability of scoring ≤ PP line. Click any column to re-sort."
 )
 
 # Serialise for caching
@@ -678,36 +774,34 @@ live_csv = live.to_csv(index=False) if live is not None else None
 
 ov_data = build_overview_data(rs_pkl, live_csv)
 
-# Build the per-player under% at their PP line using score distributions
-def _under_pct(player: str) -> float:
-    row = ov_data[ov_data["player"] == player]
-    if row.empty or row["pp_line"].iloc[0] is None:
-        return float("nan")
-    pp_line = float(row["pp_line"].iloc[0])
-    probs, _, _ = build_score_probs(player, rs, live)
-    _, under = compute_over_under(probs, SCORE_BINS, pp_line)
-    return round(under * 100, 1)
-
-# Also compute top-1 and top-2 probabilities
-def _top_probs(player: str) -> tuple[float, float]:
-    probs, _, _ = build_score_probs(player, rs, live)
-    sorted_idx = np.argsort(probs)[::-1]
-    return round(float(probs[sorted_idx[0]]) * 100, 1), round(float(probs[sorted_idx[1]]) * 100, 1)
+# Collect all players with live lines (from API or fallback)
+all_pp = sorted(
+    set(ALL_PP_PLAYERS) | set(pp_lines.keys()),
+    key=lambda p: pp_lines.get(p, {}).get("strokes", DEFAULT_STROKES.get(p, 99))
+)
 
 ov_rows = []
-for _, row in ov_data.iterrows():
-    p = row["player"]
-    top1_pct, top2_pct = _top_probs(p)
-    under_pct = _under_pct(p)
+for p in all_pp:
+    live_strokes = pp_lines.get(p, {}).get("strokes") or DEFAULT_STROKES.get(p)
+    if live_strokes is None:
+        continue
+    probs, mc_mu, _ = build_score_probs(p, rs, live)
+    sorted_idx = np.argsort(probs)[::-1]
+    bins_arr   = np.array(SCORE_BINS)
+    top1 = int(bins_arr[sorted_idx[0]])
+    top2 = int(bins_arr[sorted_idx[1]])
+    p1   = round(float(probs[sorted_idx[0]]) * 100, 1)
+    p2   = round(float(probs[sorted_idx[1]]) * 100, 1)
+    _, under = compute_over_under(probs, SCORE_BINS, float(live_strokes))
     ov_rows.append({
-        "Player":     p,
-        "#1 Score":   int(row["top1"]),
-        "#1 Prob":    top1_pct,
-        "#2 Score":   int(row["top2"]),
-        "#2 Prob":    top2_pct,
-        "Model Avg":  round(row["mc_mu"], 1),
-        "Under%":     under_pct,
-        "PP Line":    row["pp_line"],
+        "Player":    p,
+        "#1 Score":  top1,
+        "#1 Prob":   p1,
+        "#2 Score":  top2,
+        "#2 Prob":   p2,
+        "Model Avg": round(mc_mu, 1),
+        "PP Line":   float(live_strokes),
+        "Under%":    round(under * 100, 1),
     })
 
 ov_table = pd.DataFrame(ov_rows).sort_values("Model Avg").reset_index(drop=True)
@@ -723,8 +817,8 @@ st.dataframe(
         "#2 Score":  st.column_config.NumberColumn("#2 Score", format="%d"),
         "#2 Prob":   st.column_config.NumberColumn("#2 Prob %", format="%.1f%%"),
         "Model Avg": st.column_config.NumberColumn("Model Avg", format="%.1f"),
-        "Under%":    st.column_config.NumberColumn("Under% at PP Line", format="%.1f%%"),
         "PP Line":   st.column_config.NumberColumn("PP Line", format="%.1f"),
+        "Under%":    st.column_config.NumberColumn("Under% at Line", format="%.1f%%"),
     },
 )
 
@@ -746,7 +840,7 @@ mc_mu = dist["mc_mu"]
 col1, col2, col3 = st.columns(3)
 col1.metric("MC Projected R4", f"{mc_mu:.1f}", help="MC expected R4 strokes")
 col2.metric("Augusta Rounds (hist.)", n)
-note = "✅ PP screenshot" if player in DEFAULT_STROKES else "⚠️ manual line"
+note = "🟢 Live API" if pp_live and player in pp_lines else ("🟡 Hardcoded" if player in DEFAULT_STROKES else "⚠️ manual")
 col3.metric(
     "Strokes Line", f"{line_strokes:.1f}",
     delta=f"{mc_mu - line_strokes:+.1f} vs line",
@@ -758,7 +852,7 @@ if n < 4:
 
 # ── Strokes ────────────────────────────────────────────────────────────────────
 st.markdown("#### Total Strokes Distribution")
-note_src = "✅ Verified from PrizePicks screenshots" if player in DEFAULT_STROKES else "Line entered manually"
+note_src = f"🟢 Live from PrizePicks API ({pp_ts})" if pp_live and player in pp_lines else "🟡 Hardcoded / manual line"
 st.caption(note_src)
 
 fig_s = make_dist_chart(SCORE_BINS, dist["score_probs"], line_strokes,
