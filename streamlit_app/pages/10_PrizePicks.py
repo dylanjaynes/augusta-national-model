@@ -616,8 +616,8 @@ def make_hole_chart(labels: list, probs: np.ndarray, hole_name: str, n: int) -> 
 
 st.title("PrizePicks Projections — R4 Masters 2026")
 st.caption(
-    "**Bird's-eye:** all players at a glance.  "
-    "**Detail view:** pick a player, enter any line, see the full probability distribution."
+    "**Overview table:** all players sorted by model projection. "
+    "**Detail view:** pick a player below, enter any line, see the full probability distribution."
 )
 
 hbh  = load_hbh()
@@ -661,33 +661,76 @@ with st.sidebar:
     )
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# SECTION 1 — BIRD'S EYE OVERVIEW
+# SECTION 1 — OVERVIEW TABLE
 # ═══════════════════════════════════════════════════════════════════════════════
 
-st.subheader("R4 Score Projections — At a Glance")
+st.subheader("R4 Score Projections — All Players")
 st.caption(
-    "All PrizePicks players sorted best → worst projected score.  "
-    "**Dots** = two most likely scores.  "
-    "**Tick mark** = MC expected value.  "
-    "**Gold diamond** = PrizePicks line.  "
-    "**Shaded bar** = 50% confidence range.  "
-    "Green = projected under par · Red = over par."
+    "Sorted by Model Avg (best projected score first). "
+    "**#1 / #2 Score** = two most likely R4 scores and their individual probabilities. "
+    "**Under%** = probability of scoring ≤ the PP line. Click any column header to re-sort."
 )
 
 # Serialise for caching
-import pickle, io as _io
+import pickle
 rs_pkl   = pickle.dumps(rs)
 live_csv = live.to_csv(index=False) if live is not None else None
 
 ov_data = build_overview_data(rs_pkl, live_csv)
-fig_ov  = make_birds_eye_chart(ov_data)
 
-st.plotly_chart(fig_ov, use_container_width=True, config={"displayModeBar": False})
+# Build the per-player under% at their PP line using score distributions
+def _under_pct(player: str) -> float:
+    row = ov_data[ov_data["player"] == player]
+    if row.empty or row["pp_line"].iloc[0] is None:
+        return float("nan")
+    pp_line = float(row["pp_line"].iloc[0])
+    probs, _, _ = build_score_probs(player, rs, live)
+    _, under = compute_over_under(probs, SCORE_BINS, pp_line)
+    return round(under * 100, 1)
 
-with st.expander("Overview data table"):
-    disp = ov_data[["player", "mc_mu", "top1", "top2", "p25", "p75", "pp_line", "n_rounds"]].copy()
-    disp.columns = ["Player", "MC Proj", "Mode 1", "Mode 2", "P25", "P75", "PP Line", "Rounds"]
-    st.dataframe(disp, hide_index=True, use_container_width=True)
+# Also compute top-1 and top-2 probabilities
+def _top_probs(player: str) -> tuple[float, float]:
+    probs, _, _ = build_score_probs(player, rs, live)
+    sorted_idx = np.argsort(probs)[::-1]
+    return round(float(probs[sorted_idx[0]]) * 100, 1), round(float(probs[sorted_idx[1]]) * 100, 1)
+
+ov_rows = []
+for _, row in ov_data.iterrows():
+    p = row["player"]
+    top1_pct, top2_pct = _top_probs(p)
+    under_pct = _under_pct(p)
+    ov_rows.append({
+        "Player":     p,
+        "#1 Score":   int(row["top1"]),
+        "#1 Prob":    top1_pct,
+        "#2 Score":   int(row["top2"]),
+        "#2 Prob":    top2_pct,
+        "Model Avg":  round(row["mc_mu"], 1),
+        "Under%":     under_pct,
+        "PP Line":    row["pp_line"],
+    })
+
+ov_table = pd.DataFrame(ov_rows).sort_values("Model Avg").reset_index(drop=True)
+
+st.dataframe(
+    ov_table,
+    hide_index=True,
+    use_container_width=True,
+    column_config={
+        "Player":    st.column_config.TextColumn("Player"),
+        "#1 Score":  st.column_config.NumberColumn("#1 Score", format="%d"),
+        "#1 Prob":   st.column_config.NumberColumn("#1 Prob %", format="%.1f%%"),
+        "#2 Score":  st.column_config.NumberColumn("#2 Score", format="%d"),
+        "#2 Prob":   st.column_config.NumberColumn("#2 Prob %", format="%.1f%%"),
+        "Model Avg": st.column_config.NumberColumn("Model Avg", format="%.1f"),
+        "Under%":    st.column_config.NumberColumn("Under% at PP Line", format="%.1f%%"),
+        "PP Line":   st.column_config.NumberColumn("PP Line", format="%.1f"),
+    },
+)
+
+with st.expander("Score range chart (visual)"):
+    fig_ov = make_birds_eye_chart(ov_data)
+    st.plotly_chart(fig_ov, use_container_width=True, config={"displayModeBar": False})
 
 st.markdown("---")
 
